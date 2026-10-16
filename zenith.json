@@ -1,0 +1,26 @@
+{
+  "name": "find-tony",
+  "containerPort": 3000,
+  "http": {
+    "port": 3000,
+    "routes": [
+      {
+        "path": "/",
+        "target": "/"
+      }
+    ],
+    "healthCheck": {
+      "path": "/healthz",
+      "method": "GET",
+      "expectedStatus": 200
+    }
+  },
+  "environment": {
+    "NODE_ENV": "production",
+    "PORT": "3000",
+    "DATA_DIR": "/app/data"
+  },
+  "storage": {
+    "mountPath": "/app/data"
+  }
+}

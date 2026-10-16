@@ -1,0 +1,11 @@
+node_modules/
+.env
+.next/
+out/
+.env
+.env.*
+!.env.example
+data/alerts.json
+data/alerts.json.*.tmp
+npm-debug.log*
+*.tsbuildinfo

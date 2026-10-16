@@ -1,0 +1,16 @@
+services:
+  find-tony:
+    build: .
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      DATA_DIR: /app/data
+    volumes:
+      - find-tony-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  find-tony-data:

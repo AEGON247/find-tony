@@ -1,0 +1,7 @@
+.git
+.gitignore
+node_modules
+.env
+npm-debug.log*
+test
+data/alerts.json
