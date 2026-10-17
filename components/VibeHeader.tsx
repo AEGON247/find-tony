@@ -2,6 +2,7 @@
 
 import { MapPin, UserRound } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import type { Category } from "@/lib/types";
 
 const filters: { category: Category; symbol: string }[] = [
@@ -22,7 +23,8 @@ export default function VibeHeader({ category, onCategoryChange, onOpenProfile, 
   return (
     <header className="app-header">
       <Link href="/" className="wordmark" aria-label="Find Tony home">
-        <span className="wordmark-mark">T</span><span>FIND TONY</span>
+        <Image className="wordmark-logo" src="/icons/find-tony-logo-png.png" alt="" width={42} height={42} priority />
+        <span>FIND TONY</span>
       </Link>
       <div className="header-location"><MapPin size={15} /><span>{locationLabel}</span></div>
       <nav className="vibe-filters" aria-label="Filter places by vibe">

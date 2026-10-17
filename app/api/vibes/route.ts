@@ -60,10 +60,16 @@ export async function GET(request: NextRequest) {
     seenEventKeys.add(eventKey);
     return true;
   });
-  places = places.map((place) => ({
-    ...place,
-    tags: [...new Set([...(place.tags ?? []), ...(communityTags[place.id] ?? [])])],
-  }));
+  places = places.map((place) => {
+    const sourceTags = [...new Set(place.tags ?? [])];
+    const placeCommunityTags = communityTags[place.id] ?? [];
+    return {
+      ...place,
+      sourceTags,
+      communityTags: placeCommunityTags,
+      tags: [...new Set([...sourceTags, ...placeCommunityTags])],
+    };
+  });
   let warnings = categoryValue === "EVENTS"
     ? [...live.warnings, ...(eventbrite.warning ? [eventbrite.warning] : [])]
     : [...osm.warnings];

@@ -180,9 +180,13 @@ function FindTonyApp() {
     setNavigationTarget(undefined);
   }
 
-  function addPlaceTag(placeId: string, tags: string[]) {
-    setPlaces((current) => current.map((place) => place.id === placeId ? { ...place, tags } : place));
-    setSelected((current) => current?.id === placeId ? { ...current, tags } : current);
+  function updatePlaceTags(placeId: string, tags: string[], communityTags: string[]) {
+    setPlaces((current) => current.map((place) => place.id === placeId
+      ? { ...place, tags, communityTags }
+      : place));
+    setSelected((current) => current?.id === placeId
+      ? { ...current, tags, communityTags }
+      : current);
   }
 
   async function reportPlace(place: VibePlace, reason: "not_a_place" | "closed" | "incorrect") {
@@ -317,7 +321,8 @@ function FindTonyApp() {
           onClose={closePlace}
           onNavigate={navigateTo}
           onNearby={showNearby}
-          onTagAdded={addPlaceTag}
+          onTagAdded={updatePlaceTags}
+          onTagRemoved={updatePlaceTags}
           onReport={reportPlace}
           userCoordinates={coordinates}
           onCheckIn={checkIn}
