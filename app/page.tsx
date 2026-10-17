@@ -450,7 +450,6 @@ function FindTonyApp() {
           place={selected}
           onClose={closePlace}
           onNavigate={navigateTo}
-          onNearby={showNearby}
           onInvite={setInvitePlace}
           onTagAdded={updatePlaceTags}
           onTagRemoved={updatePlaceTags}

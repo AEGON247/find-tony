@@ -2,8 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
-import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, ChevronLeft, ChevronRight, Clock3, Flag, Globe, MapPin, Navigation, Pencil, Share2, Ticket, UserPlus, X } from "lucide-react";
-import { ArrowDown, ArrowUp, ArrowUpRight, BookOpen, Bookmark, CalendarDays, ChevronLeft, ChevronRight, Clock3, Coffee, Flag, Globe, MapPin, Music2, Navigation, Pencil, Share2, Ticket, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, BookOpen, Bookmark, CalendarDays, ChevronLeft, ChevronRight, Clock3, Coffee, Flag, Globe, MapPin, Music2, Navigation, Pencil, Share2, Ticket, UserPlus, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { VibePlace } from "@/lib/types";
 
@@ -44,7 +43,6 @@ export default function PlaceDetailPanel({
   place,
   onClose,
   onNavigate,
-  onNearby,
   onInvite,
   onTagAdded,
   onTagRemoved,
@@ -56,7 +54,6 @@ export default function PlaceDetailPanel({
   place?: VibePlace;
   onClose: () => void;
   onNavigate: (place: VibePlace) => void;
-  onNearby: (place: VibePlace) => void;
   onInvite: (place: VibePlace) => void;
   onTagAdded: (placeId: string, tags: string[], communityTags: string[]) => void;
   onTagRemoved: (placeId: string, tags: string[], communityTags: string[]) => void;
