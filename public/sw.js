@@ -74,7 +74,11 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/api/")) return;
   event.respondWith((async () => {
     const cache = await caches.open(APP_CACHE);
-    const cacheKey = request.mode === "navigate" ? APP_SHELL_CACHE_KEY : request;
+    // Invite pages are per-invite server renders; cache them under their own URL
+    // so opening an invite never replaces the offline map shell.
+    const cacheKey = request.mode === "navigate" && !url.pathname.startsWith("/invite/")
+      ? APP_SHELL_CACHE_KEY
+      : request;
     try {
       const response = await fetch(request);
       if (url.pathname.startsWith("/_next/static/") && response.ok) {

@@ -2,9 +2,10 @@
 
 import dynamic from "next/dynamic";
 import { AnimatePresence } from "framer-motion";
-import { Navigation } from "lucide-react";
+import { Navigation, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import AlertModal from "@/components/AlertModal";
+import InviteModal from "@/components/InviteModal";
 import BadgeAwardOverlay from "@/components/BadgeAwardOverlay";
 import BadgeProgressDrawer from "@/components/BadgeProgressDrawer";
 import MapLoader from "@/components/MapLoader";
@@ -98,6 +99,8 @@ function FindTonyApp() {
   const [started, setStarted] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [alertOpen, setAlertOpen] = useState(false);
+  const [invitePlace, setInvitePlace] = useState<VibePlace>();
+  const [pickingInvitePlace, setPickingInvitePlace] = useState(false);
   const [selected, setSelected] = useState<VibePlace>();
   const [navigationTarget, setNavigationTarget] = useState<VibePlace>();
   const [places, setPlaces] = useState<VibePlace[]>([]);
@@ -252,6 +255,10 @@ function FindTonyApp() {
   }
 
   function selectPlace(place: VibePlace) {
+    if (pickingInvitePlace) {
+      setPickingInvitePlace(false);
+      setInvitePlace(place);
+    }
     setSelected(place);
     setNavigationTarget(undefined);
     const url = new URL(window.location.href);
@@ -404,6 +411,20 @@ function FindTonyApp() {
         {coordinates && <button className="button button-alert" onClick={() => setAlertOpen(true)}>
           <span aria-hidden="true">+</span> DROP A SPOT
         </button>}
+        {coordinates && !pickingInvitePlace && (
+          <button className="button button-invite" onClick={() => {
+            if (selected) setInvitePlace(selected);
+            else setPickingInvitePlace(true);
+          }}>
+            <UserPlus size={15} aria-hidden="true" /> INVITE FRIENDS
+          </button>
+        )}
+        {pickingInvitePlace && (
+          <div className="invite-pick-hint" role="status">
+            <span>TAP A PLACE ON THE MAP TO INVITE FRIENDS</span>
+            <button aria-label="Cancel invite" onClick={() => setPickingInvitePlace(false)}>×</button>
+          </div>
+        )}
         {warnings.length > 0 && places.length > 0 && (
           <div className="api-warning" role="status">{warnings.join(" ")}</div>
         )}
@@ -429,6 +450,8 @@ function FindTonyApp() {
           place={selected}
           onClose={closePlace}
           onNavigate={navigateTo}
+          onNearby={showNearby}
+          onInvite={setInvitePlace}
           onTagAdded={updatePlaceTags}
           onTagRemoved={updatePlaceTags}
           onReport={reportPlace}
@@ -446,6 +469,7 @@ function FindTonyApp() {
           />
         </AnimatePresence>
       )}
+      {invitePlace && <InviteModal key={invitePlace.id} place={invitePlace} onClose={() => setInvitePlace(undefined)} />}
       <BadgeProgressDrawer
         open={badgeProgressOpen}
         badges={badgeProgress}
