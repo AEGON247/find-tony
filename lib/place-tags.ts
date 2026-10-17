@@ -59,3 +59,33 @@ export async function addPlaceTag(placeId: string, tag: string) {
   writeQueue = write.then(() => undefined, () => undefined);
   return write;
 }
+
+export async function removePlaceTag(placeId: string, tag: string) {
+  const write = writeQueue.then(async () => {
+    await fs.mkdir(dataDirectory, { recursive: true });
+    const tags = await readAllTags();
+    const existing = tags[placeId] ?? [];
+    const normalized = tag.toLocaleLowerCase("en-AU");
+    const updated = existing.filter((value) => value.toLocaleLowerCase("en-AU") !== normalized);
+    if (updated.length === existing.length) return existing;
+
+    const next = { ...tags };
+    if (updated.length > 0) next[placeId] = updated;
+    else delete next[placeId];
+    const temporaryFile = `${tagsFile}.${process.pid}.${crypto.randomUUID()}.tmp`;
+    try {
+      await fs.writeFile(temporaryFile, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+      await fs.rename(temporaryFile, tagsFile);
+    } catch (error) {
+      try {
+        await fs.rm(temporaryFile, { force: true });
+      } catch (cleanupError) {
+        console.error("Could not remove temporary place-tag data.", cleanupError);
+      }
+      throw error;
+    }
+    return updated;
+  });
+  writeQueue = write.then(() => undefined, () => undefined);
+  return write;
+}

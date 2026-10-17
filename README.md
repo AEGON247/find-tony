@@ -27,7 +27,7 @@ npm start
 - `GET /api/vibes?category=EVENTS&lat={lat}&lng={lng}&radius=3` combines upcoming Luma events, optional Eventbrite results, and community event pins. Live event titles are used to infer starting event-type tags; available public listing descriptions, times, registration links, and images are shown where supplied.
 - `GET /api/vibes?category=FOODIE&lat={lat}&lng={lng}&radius=3` returns nearby live map places and saved community places. Venue categories use OpenStreetMap Overpass, optional Foursquare, and Nominatim fallback. Provider failures are surfaced as warnings while saved community places remain available.
 - `POST /api/alerts` persists a community pin in `DATA_DIR/alerts.json`; spots submitted as EVENTS can include an event type.
-- `POST /api/place-tags` adds a shared custom tag for a place in `DATA_DIR/place-tags.json`.
+- `POST /api/place-tags` adds a shared custom tag for a place; `DELETE /api/place-tags` removes a community tag. Both changes persist in `DATA_DIR/place-tags.json`.
 - `POST /api/reports` saves a place-removal/accuracy report in `DATA_DIR/reports.json` for team review and locally hides the reported place on that browser.
 - `GET /healthz` returns HTTP 200 for deployment health checks.
 

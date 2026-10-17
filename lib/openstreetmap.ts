@@ -73,7 +73,7 @@ const OVERPASS_ENDPOINTS = [
   "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
   "https://overpass-api.de/api/interpreter",
 ];
-const OVERPASS_TIMEOUT_MS = 1_500;
+const OVERPASS_TIMEOUT_MS = 1_000;
 const FOURSQUARE_TIMEOUT_MS = 2_500;
 const FOURSQUARE_FAILURE_COOLDOWN_MS = 60 * 1000;
 // Pro (free-tier) fields only. Premium fields such as photos, hours and description
@@ -94,6 +94,20 @@ const overpassCooldowns = new Map<string, number>();
 let nextNominatimRequestAt = 0;
 let nominatimQueue: Promise<void> = Promise.resolve();
 let foursquareCooldownUntil = 0;
+
+function getFoursquareApiKey() {
+  return [
+    process.env.FOURSQUARE_API_KEY,
+    process.env.FOURSQUARE_SERVICE_KEY,
+    process.env.FOURSQUARE_KEY,
+  ]
+    .map((value) => {
+      const trimmed = value?.trim() ?? "";
+      const unquoted = trimmed.replace(/^(['"])(.*)\1$/s, "$2").trim();
+      return unquoted.replace(/^["']+|["']+$/g, "").trim();
+    })
+    .find((value) => value.startsWith("fsq3")) ?? "";
+}
 
 async function waitForNominatimSlot() {
   const slot = nominatimQueue.then(async () => {

@@ -2,8 +2,8 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
-import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, Clock3, Flag, Globe, MapPin, Navigation, Pencil, Share2, Ticket, X } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, ChevronLeft, ChevronRight, Clock3, Flag, Globe, MapPin, Navigation, Pencil, Share2, Ticket, X } from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { VibePlace } from "@/lib/types";
 
 const SAVED_PLACES_KEY = "find-tony-saved-places-v1";
@@ -45,6 +45,7 @@ export default function PlaceDetailPanel({
   onNavigate,
   onNearby,
   onTagAdded,
+  onTagRemoved,
   onReport,
   userCoordinates,
   onCheckIn,
@@ -54,7 +55,8 @@ export default function PlaceDetailPanel({
   onClose: () => void;
   onNavigate: (place: VibePlace) => void;
   onNearby: (place: VibePlace) => void;
-  onTagAdded: (placeId: string, tags: string[]) => void;
+  onTagAdded: (placeId: string, tags: string[], communityTags: string[]) => void;
+  onTagRemoved: (placeId: string, tags: string[], communityTags: string[]) => void;
   onReport: (place: VibePlace, reason: "not_a_place" | "closed" | "incorrect") => Promise<void>;
   userCoordinates?: [number, number];
   onCheckIn: (place: VibePlace) => void;
@@ -67,10 +69,12 @@ export default function PlaceDetailPanel({
   const [tagEditorOpen, setTagEditorOpen] = useState(false);
   const [tagError, setTagError] = useState("");
   const [tagSaving, setTagSaving] = useState(false);
+  const [tagRemoving, setTagRemoving] = useState("");
   const [reportPromptOpen, setReportPromptOpen] = useState(false);
   const [reportReason, setReportReason] = useState<"not_a_place" | "closed" | "incorrect">("not_a_place");
   const [reportError, setReportError] = useState("");
   const [reporting, setReporting] = useState(false);
+  const actionCarouselRef = useRef<HTMLDivElement>(null);
   const start = formatEventTime(place?.eventStart);
   const end = formatEventTime(place?.eventEnd);
 
@@ -102,13 +106,43 @@ export default function PlaceDetailPanel({
       });
       const result = await response.json() as { tags?: string[]; error?: string };
       if (!response.ok || !result.tags) throw new Error(result.error ?? "Could not add this tag.");
-      onTagAdded(place.id, [...new Set([...(place.tags ?? []), ...result.tags])]);
+      const communityTags = result.tags;
+      onTagAdded(
+        place.id,
+        [...new Set([...(place.sourceTags ?? place.tags ?? []), ...communityTags])],
+        communityTags,
+      );
       setTagEditorOpen(false);
     } catch (error) {
       setTagError(error instanceof Error ? error.message : "Could not add this tag.");
     } finally {
       setTagSaving(false);
     }
+  }
+
+  async function removeTag(tag: string) {
+    if (!place) return;
+    setTagRemoving(tag);
+    setTagError("");
+    try {
+      const response = await fetch("/api/place-tags", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ placeId: place.id, tag }),
+      });
+      const result = await response.json() as { tags?: string[]; error?: string };
+      if (!response.ok || !result.tags) throw new Error(result.error ?? "Could not remove this tag.");
+      const sourceTags = place.sourceTags ?? [];
+      onTagRemoved(place.id, [...new Set([...sourceTags, ...result.tags])], result.tags);
+    } catch (error) {
+      setTagError(error instanceof Error ? error.message : "Could not remove this tag.");
+    } finally {
+      setTagRemoving("");
+    }
+  }
+
+  function scrollActions(direction: -1 | 1) {
+    actionCarouselRef.current?.scrollBy({ left: direction * 210, behavior: "smooth" });
   }
 
   async function submitReport() {
@@ -213,33 +247,42 @@ export default function PlaceDetailPanel({
               </p>
             )}
           </div>
-          <div className="place-detail-actions">
-            <button className="place-detail-action place-detail-action--route" onClick={() => onNavigate(place)}>
-              <Navigation size={17} /><span>IN-APP ROUTE</span>
-            </button>
-            <a
-              className="place-detail-action place-detail-action--website"
-              href={`https://www.google.com/maps/dir/?api=1&${userCoordinates ? `origin=${userCoordinates[0]},${userCoordinates[1]}&` : ""}destination=${place.lat},${place.lng}&travelmode=walking`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Navigation size={17} /><span>WALK IN MAPS<ArrowUpRight size={12} /></span>
-            </a>
-            <button className={`place-detail-action place-detail-action--save ${savedPlaceIds.includes(place.id) ? "is-saved" : ""}`} onClick={toggleSaved}>
-              <Bookmark size={17} fill={savedPlaceIds.includes(place.id) ? "currentColor" : "none"} />
-              <span>{savedPlaceIds.includes(place.id) ? "SAVED" : "SAVE"}</span>
-            </button>
-            <button className="place-detail-action place-detail-action--nearby" onClick={() => onNearby(place)}>
-              <MapPin size={17} /><span>NEARBY</span>
-            </button>
-            {place.link && (
-              <a className="place-detail-action place-detail-action--website" href={place.link} target="_blank" rel="noreferrer">
-                <Globe size={17} /><span>{place.isLiveEvent ? "REGISTER" : "WEBSITE"}<ArrowUpRight size={12} /></span>
+          <div className="place-action-carousel">
+            <div className="place-action-carousel__header">
+              <span>QUICK ACTIONS</span>
+              <div>
+                <button aria-label="Scroll actions left" onClick={() => scrollActions(-1)}><ChevronLeft size={15} /></button>
+                <button aria-label="Scroll actions right" onClick={() => scrollActions(1)}><ChevronRight size={15} /></button>
+              </div>
+            </div>
+            <div className="place-detail-actions" ref={actionCarouselRef} aria-label="Place actions">
+              <button className="place-detail-action place-detail-action--route" onClick={() => onNavigate(place)}>
+                <Navigation size={17} /><span>IN-APP ROUTE</span>
+              </button>
+              <a
+                className="place-detail-action place-detail-action--website"
+                href={`https://www.google.com/maps/dir/?api=1&${userCoordinates ? `origin=${userCoordinates[0]},${userCoordinates[1]}&` : ""}destination=${place.lat},${place.lng}&travelmode=walking`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Navigation size={17} /><span>WALK IN MAPS<ArrowUpRight size={12} /></span>
               </a>
-            )}
-            <button className="place-detail-action place-detail-action--share" onClick={sharePlace}>
-              <Share2 size={17} /><span>SHARE</span>
-            </button>
+              <button className={`place-detail-action place-detail-action--save ${savedPlaceIds.includes(place.id) ? "is-saved" : ""}`} onClick={toggleSaved}>
+                <Bookmark size={17} fill={savedPlaceIds.includes(place.id) ? "currentColor" : "none"} />
+                <span>{savedPlaceIds.includes(place.id) ? "SAVED" : "SAVE"}</span>
+              </button>
+              <button className="place-detail-action place-detail-action--nearby" onClick={() => onNearby(place)}>
+                <MapPin size={17} /><span>NEARBY</span>
+              </button>
+              {place.link && (
+                <a className="place-detail-action place-detail-action--website" href={place.link} target="_blank" rel="noreferrer">
+                  <Globe size={17} /><span>{place.isLiveEvent ? "REGISTER" : "WEBSITE"}<ArrowUpRight size={12} /></span>
+                </a>
+              )}
+              <button className="place-detail-action place-detail-action--share" onClick={sharePlace}>
+                <Share2 size={17} /><span>SHARE</span>
+              </button>
+            </div>
           </div>
           <nav className="place-detail-tabs" aria-label="Place information">
             {(["overview", "reviews", "about"] as const).map((tab) => (
@@ -256,7 +299,22 @@ export default function PlaceDetailPanel({
           <div className="place-detail-content">
             {shareStatus && <p className="share-status" role="status">{shareStatus}</p>}
             <div className="place-tags" aria-label="Place tags">
-              {(place.tags ?? []).map((tag) => <span className="place-tag" key={tag}>{tag}</span>)}
+              {(place.tags ?? []).map((tag) => (
+                <span className="place-tag-item" key={tag}>
+                  <span className="place-tag">{tag}</span>
+                  {place.communityTags?.some((communityTag) => communityTag.toLocaleLowerCase("en-AU") === tag.toLocaleLowerCase("en-AU")) && (
+                    <button
+                      className="place-tag-remove"
+                      aria-label={`Cancel ${tag} tag`}
+                      title={`Remove shared ${tag} tag`}
+                      disabled={tagRemoving === tag}
+                      onClick={() => void removeTag(tag)}
+                    >
+                      <X size={11} />
+                    </button>
+                  )}
+                </span>
+              ))}
               <button
                 className="place-tag-edit"
                 aria-label="Add a tag"
@@ -266,6 +324,7 @@ export default function PlaceDetailPanel({
                 <Pencil size={13} />
               </button>
             </div>
+            {!tagEditorOpen && tagError && <p className="place-tag-delete-error" role="alert">{tagError}</p>}
             {tagEditorOpen && (
               <form className="place-tag-editor" onSubmit={addTag}>
                 <label htmlFor="place-tag-input">ADD A SHARED TAG</label>

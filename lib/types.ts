@@ -24,6 +24,8 @@ export interface VibePlace {
   address: string;
   details: string;
   tags?: string[];
+  sourceTags?: string[];
+  communityTags?: string[];
   placeType?: string;
   accessibility?: string;
   imageUrl?: string;
