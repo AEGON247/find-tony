@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0e0e12">
+    <meta name="description" content="Find Tony: discover food, nights out, hackathons, and quiet corners around Sydney.">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <title>Find Tony // Sydney</title>
+    <link rel="preconnect" href="https://tile.openstreetmap.org">
+    <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+    <link rel="stylesheet" href="/styles.css?v=2">
+    <script defer src="/vendor/leaflet/leaflet.js"></script>
+    <script defer src="/app.js?v=2"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="splash-screen" id="splash" aria-labelledby="splash-title">
+        <div class="splash-panel">
+          <p class="eyebrow">SYDNEY / FIELD GUIDE 01</p>
+          <h1 id="splash-title">FIND<br><span>TONY</span></h1>
+          <p class="splash-copy">Find your people. Find your place.<br>Get out there.</p>
+          <button class="button button-primary initialize-button" id="initialize" type="button">
+            <span class="button-arrow" aria-hidden="true">→</span> FIND YOUR SPOT
+          </button>
+          <p class="splash-footnote">A student-built map of the city in motion.</p>
+        </div>
+      </section>
+
+      <section class="radar" id="radar" aria-label="Find Tony map">
+        <header class="topbar">
+          <a class="wordmark" href="/" aria-label="Find Tony home"><span class="wordmark-mark">T</span> FIND TONY</a>
+          <div class="location-label"><span class="status-light"></span><span id="location-status">SYDNEY, AUSTRALIA</span></div>
+          <div class="topbar-actions">
+            <button class="install-button" id="install-app" type="button" hidden>INSTALL APP</button>
+            <button class="icon-button locate-button" id="locate" type="button" aria-label="Center map on my location" title="Center on me">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Z"/></svg>
+            </button>
+          </div>
+        </header>
+
+        <nav class="vibe-filters" aria-label="Filter places by vibe">
+          <button class="filter-chip is-active" type="button" data-category="FOODIE"><span class="chip-symbol symbol-food" aria-hidden="true">F</span> FOODIE</button>
+          <button class="filter-chip" type="button" data-category="PARTY"><span class="chip-symbol symbol-party" aria-hidden="true">P</span> PARTY</button>
+          <button class="filter-chip" type="button" data-category="HACKATHONS"><span class="chip-symbol symbol-hack" aria-hidden="true">H</span> HACKATHONS</button>
+          <button class="filter-chip" type="button" data-category="CHILL"><span class="chip-symbol symbol-chill" aria-hidden="true">C</span> CHILL</button>
+        </nav>
+
+        <div class="map-wrap">
+          <div id="map" role="application" aria-label="Interactive map of Sydney places"></div>
+          <div class="map-halftone" aria-hidden="true"></div>
+          <div class="map-stamp" aria-hidden="true"><span>SYD</span><b>33°52'S<br>151°12'E</b></div>
+          <div class="map-credit">MAP DATA © OPENSTREETMAP CONTRIBUTORS</div>
+          <button class="button button-alert" id="open-alert" type="button"><span aria-hidden="true">+</span> DROP A SPOT</button>
+          <aside class="detail-card" id="detail-card" aria-live="polite" hidden>
+            <button class="card-close" id="close-card" type="button" aria-label="Close place details">×</button>
+            <p class="eyebrow card-category" id="card-category"></p>
+            <h2 id="card-title"></h2>
+            <p class="card-meta" id="card-meta"></p>
+            <p class="card-details" id="card-details"></p>
+            <div class="card-bottom">
+              <span class="rating" id="card-rating"></span>
+              <div class="card-links">
+                <a class="button button-info" id="info-link" target="_blank" rel="noopener noreferrer" hidden>VENUE INFO <span aria-hidden="true">↗</span></a>
+                <a class="button button-primary navigate-link" id="navigate-link" target="_blank" rel="noopener noreferrer">DIRECTIONS <span aria-hidden="true">↗</span></a>
+              </div>
+            </div>
+            <p class="card-source" id="card-source"></p>
+          </aside>
+          <div class="loading-note" id="loading-note" role="status">TUNING INTO SYDNEY...</div>
+        </div>
+
+        <footer class="bottom-bar">
+          <div><span class="footer-label">YOUR CITY. YOUR SIGNAL.</span><span class="footer-sub">Community tips are marked as such.</span></div>
+          <span class="pin-count" id="pin-count">LOADING SPOTS</span>
+        </footer>
+      </section>
+
+      <dialog class="alert-dialog" id="alert-dialog">
+        <form id="alert-form">
+          <button class="card-close dialog-close" id="close-alert" type="button" aria-label="Close form">×</button>
+          <p class="eyebrow">COMMUNITY SIGNAL</p>
+          <h2>DROP A SPOT</h2>
+          <p class="dialog-intro">Share a place near your current map position. Alerts are stored on this demo server.</p>
+          <label for="alert-title">PLACE OR ALERT NAME</label>
+          <input id="alert-title" name="title" maxlength="80" minlength="3" required placeholder="e.g. Free pizza at the quad">
+          <label for="alert-category">VIBE</label>
+          <select id="alert-category" name="category" required>
+            <option value="FOODIE">FOODIE</option><option value="PARTY">PARTY</option>
+            <option value="HACKATHONS">HACKATHONS</option><option value="CHILL">CHILL</option>
+          </select>
+          <label for="alert-details">DETAILS <span>(OPTIONAL, 280 CHARACTERS)</span></label>
+          <textarea id="alert-details" name="details" maxlength="280" rows="3" placeholder="What should people know?"></textarea>
+          <p class="form-error" id="form-error" role="alert" hidden></p>
+          <button class="button button-primary submit-alert" type="submit">PUBLISH SPOT <span aria-hidden="true">→</span></button>
+        </form>
+      </dialog>
+    </main>
+  </body>
+</html>

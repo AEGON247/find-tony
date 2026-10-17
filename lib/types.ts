@@ -1,4 +1,4 @@
-export const CATEGORIES = ["FOODIE", "PARTY", "HACKATHONS", "CHILL"] as const;
+export const CATEGORIES = ["FOODIE", "PARTY", "EVENTS", "CHILL"] as const;
 
 export type Category = (typeof CATEGORIES)[number];
 
@@ -23,6 +23,7 @@ export interface VibePlace {
   lng: number;
   address: string;
   details: string;
+  tags?: string[];
   placeType?: string;
   accessibility?: string;
   imageUrl?: string;
@@ -47,4 +48,5 @@ export interface UserProfile {
 export interface VibesResponse {
   items: VibePlace[];
   warnings: string[];
+  source?: "stale_cache";
 }

@@ -1,7 +1,7 @@
 import "server-only";
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { VibePlace } from "@/lib/types";
+import type { Category, VibePlace } from "@/lib/types";
 
 const dataDirectory = process.env.DATA_DIR || "data";
 const alertFile = path.join(dataDirectory, "alerts.json");
@@ -11,7 +11,16 @@ export async function readAlerts(): Promise<VibePlace[]> {
   try {
     const parsed: unknown = JSON.parse(await fs.readFile(alertFile, "utf8"));
     if (!Array.isArray(parsed)) throw new Error("Persisted community alerts must be an array.");
-    return parsed as VibePlace[];
+    return (parsed as Array<Omit<VibePlace, "category"> & { category: string }>).map((alert) => {
+      const legacyCategory = alert.category;
+      return {
+        ...alert,
+        category: (legacyCategory === "HACKATHONS" ? "EVENTS" : legacyCategory) as Category,
+        tags: legacyCategory === "HACKATHONS"
+          ? [...new Set([...(alert.tags ?? []), "Hackathon"])]
+          : alert.tags,
+      };
+    });
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") return [];
     throw error;

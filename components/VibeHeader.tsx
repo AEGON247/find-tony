@@ -7,7 +7,7 @@ import type { Category } from "@/lib/types";
 const filters: { category: Category; symbol: string }[] = [
   { category: "FOODIE", symbol: "F" },
   { category: "PARTY", symbol: "P" },
-  { category: "HACKATHONS", symbol: "H" },
+  { category: "EVENTS", symbol: "E" },
   { category: "CHILL", symbol: "C" },
 ];
 

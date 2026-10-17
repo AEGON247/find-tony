@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { Category, UserProfile } from "@/lib/types";
 import { distanceInMeters, isSydneyCoordinate } from "@/lib/geo";
+import { startDeviceHeadingTracking } from "@/lib/device-heading";
 
 const PROFILE_KEY = "find-tony-profile-v1";
 const PROFILE_EVENT = "find-tony-profile-change";
@@ -13,11 +14,13 @@ export const DEFAULT_PROFILE: UserProfile = {
   radiusKm: 3,
 };
 
+const VALID_CATEGORIES = ["FOODIE", "PARTY", "EVENTS", "CHILL"];
+
 interface VibeContextValue {
   profile: UserProfile;
   updateProfile: (profile: UserProfile) => void;
   coordinates?: [number, number];
-  heading: number;
+  placesCoordinates?: [number, number];
   locationLabel: string;
   locationStatus: "idle" | "locating" | "device" | "error";
   requestLocation: () => void;
@@ -42,12 +45,18 @@ function getProfileSnapshot() {
 function parseProfile(serialized: string | null): UserProfile {
   if (!serialized) return DEFAULT_PROFILE;
   try {
-    const parsed = JSON.parse(serialized) as Partial<UserProfile>;
+    const parsed = JSON.parse(serialized) as {
+      alias?: unknown;
+      primaryVibe?: unknown;
+      radiusKm?: unknown;
+    };
     return {
       alias: typeof parsed.alias === "string" ? parsed.alias : DEFAULT_PROFILE.alias,
-      primaryVibe: parsed.primaryVibe && ["FOODIE", "PARTY", "HACKATHONS", "CHILL"].includes(parsed.primaryVibe)
+      primaryVibe: typeof parsed.primaryVibe === "string" && VALID_CATEGORIES.includes(parsed.primaryVibe)
         ? parsed.primaryVibe as Category
-        : DEFAULT_PROFILE.primaryVibe,
+        : parsed.primaryVibe === "HACKATHONS"
+          ? "EVENTS"
+          : DEFAULT_PROFILE.primaryVibe,
       radiusKm: [1, 3, 5, 10].includes(Number(parsed.radiusKm)) ? Number(parsed.radiusKm) : DEFAULT_PROFILE.radiusKm,
     };
   } catch {
@@ -59,16 +68,14 @@ export function VibeProvider({ children }: Readonly<{ children: React.ReactNode 
   const serializedProfile = useSyncExternalStore(subscribeProfile, getProfileSnapshot, () => null);
   const profile = useMemo(() => parseProfile(serializedProfile), [serializedProfile]);
   const [deviceCoordinates, setDeviceCoordinates] = useState<[number, number]>();
+  const [placesCoordinates, setPlacesCoordinates] = useState<[number, number]>();
   const [locationStatus, setLocationStatus] = useState<"idle" | "locating" | "device" | "error">("idle");
-  const [heading, setHeading] = useState(0);
   const watchId = useRef<number | undefined>(undefined);
-  const headingHandler = useRef<((event: DeviceOrientationEvent) => void) | undefined>(undefined);
   const lastKnownCoordinates = useRef<[number, number] | undefined>(undefined);
 
   useEffect(() => {
     return () => {
       if (watchId.current !== undefined) navigator.geolocation?.clearWatch(watchId.current);
-      if (headingHandler.current) window.removeEventListener("deviceorientation", headingHandler.current);
     };
   }, []);
 
@@ -84,13 +91,6 @@ export function VibeProvider({ children }: Readonly<{ children: React.ReactNode 
   const updateProfile = useCallback((nextProfile: UserProfile) => {
     localStorage.setItem(PROFILE_KEY, JSON.stringify(nextProfile));
     window.dispatchEvent(new Event(PROFILE_EVENT));
-    setDeviceCoordinates(undefined);
-    lastKnownCoordinates.current = undefined;
-    setLocationStatus("idle");
-    if (watchId.current !== undefined) {
-      navigator.geolocation?.clearWatch(watchId.current);
-      watchId.current = undefined;
-    }
   }, []);
 
   const requestLocation = useCallback(() => {
@@ -116,11 +116,12 @@ export function VibeProvider({ children }: Readonly<{ children: React.ReactNode 
             lastKnownCoordinates.current[1],
             nextCoordinates[0],
             nextCoordinates[1],
-          ) >= 10
+          ) >= 500
         ) {
-          setDeviceCoordinates(nextCoordinates);
           lastKnownCoordinates.current = nextCoordinates;
+          setPlacesCoordinates(nextCoordinates);
         }
+        setDeviceCoordinates(nextCoordinates);
         setLocationStatus("device");
       },
       () => {
@@ -141,27 +142,15 @@ export function VibeProvider({ children }: Readonly<{ children: React.ReactNode 
     };
     try {
       if (Orientation.requestPermission && await Orientation.requestPermission() !== "granted") return;
-      if (headingHandler.current) window.removeEventListener("deviceorientation", headingHandler.current);
-
-      const updateHeading = (event: DeviceOrientationEvent) => {
-        const compassEvent = event as DeviceOrientationEvent & { webkitCompassHeading?: number };
-        const angle = typeof compassEvent.webkitCompassHeading === "number"
-          ? compassEvent.webkitCompassHeading
-          : typeof event.alpha === "number"
-            ? (360 - event.alpha + (screen.orientation?.angle ?? 0)) % 360
-            : null;
-        if (angle !== null) setHeading(angle);
-      };
-      headingHandler.current = updateHeading;
-      window.addEventListener("deviceorientation", updateHeading);
+      startDeviceHeadingTracking();
     } catch (error) {
       console.warn("Device orientation permission was not granted.", error);
     }
   }, []);
 
   const value = useMemo(() => ({
-    profile, updateProfile, coordinates, heading, locationLabel, locationStatus, requestLocation, requestHeading,
-  }), [profile, updateProfile, coordinates, heading, locationLabel, locationStatus, requestLocation, requestHeading]);
+    profile, updateProfile, coordinates, placesCoordinates, locationLabel, locationStatus, requestLocation, requestHeading,
+  }), [profile, updateProfile, coordinates, placesCoordinates, locationLabel, locationStatus, requestLocation, requestHeading]);
 
   return <VibeContext.Provider value={value}>{children}</VibeContext.Provider>;
 }

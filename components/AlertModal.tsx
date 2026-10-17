@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { useVibe } from "@/context/VibeContext";
 import { CATEGORIES, type Category, type VibePlace } from "@/lib/types";
@@ -19,6 +19,9 @@ export default function AlertModal({
   const { coordinates } = useVibe();
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [draftCategory, setDraftCategory] = useState(category);
+
+  useEffect(() => setDraftCategory(category), [category]);
 
   if (!open) return null;
 
@@ -35,6 +38,7 @@ export default function AlertModal({
           title: form.get("title"),
           category: form.get("category"),
           details: form.get("details"),
+          eventTag: form.get("eventTag"),
           lat: coordinates?.[0],
           lng: coordinates?.[1],
         }),
@@ -61,9 +65,25 @@ export default function AlertModal({
           <label htmlFor="alert-name">PLACE OR ALERT NAME</label>
           <input id="alert-name" name="title" required minLength={3} maxLength={80} placeholder="Free pizza at the quad" />
           <label htmlFor="alert-category">VIBE</label>
-          <select id="alert-category" name="category" defaultValue={category}>
+          <select id="alert-category" name="category" value={draftCategory} onChange={(event) => setDraftCategory(event.target.value as Category)}>
             {CATEGORIES.map((item) => <option value={item} key={item}>{item}</option>)}
           </select>
+          {draftCategory === "EVENTS" && (
+            <>
+              <label htmlFor="alert-event-tag">EVENT TYPE</label>
+              <select id="alert-event-tag" name="eventTag" defaultValue="Community event">
+                <option>Hackathon</option>
+                <option>Case competition</option>
+                <option>Startup event</option>
+                <option>Technology meetup</option>
+                <option>Workshop</option>
+                <option>Conference</option>
+                <option>Career fair</option>
+                <option>Social event</option>
+                <option>Community event</option>
+              </select>
+            </>
+          )}
           <label htmlFor="alert-details">DETAILS <span>(OPTIONAL)</span></label>
           <textarea id="alert-details" name="details" maxLength={280} rows={4} placeholder="What should people know?" />
           {error && <p className="form-error" role="alert">{error}</p>}

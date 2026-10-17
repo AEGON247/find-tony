@@ -17,6 +17,8 @@ export async function POST(request: NextRequest) {
   const lat = input.lat;
   const lng = input.lng;
   const details = input.details;
+  const tags = input.tags;
+  const eventTag = input.eventTag;
   if (title.length < 3 || title.length > 80) {
     return NextResponse.json({ error: "Title must be between 3 and 80 characters." }, { status: 400 });
   }
@@ -29,6 +31,24 @@ export async function POST(request: NextRequest) {
   if (details !== undefined && (typeof details !== "string" || details.length > 280)) {
     return NextResponse.json({ error: "Details must be 280 characters or fewer." }, { status: 400 });
   }
+  if (
+    tags !== undefined &&
+    (!Array.isArray(tags) ||
+      tags.length > 5 ||
+      tags.some((tag) => typeof tag !== "string" || tag.trim().length < 2 || tag.trim().length > 32))
+  ) {
+    return NextResponse.json({ error: "Provide up to five tags, each 2 to 32 characters long." }, { status: 400 });
+  }
+  if (eventTag !== undefined && (
+    typeof eventTag !== "string" ||
+    eventTag.trim().length < 2 ||
+    eventTag.trim().length > 32
+  )) {
+    return NextResponse.json({ error: "Event type must be between 2 and 32 characters." }, { status: 400 });
+  }
+  if (eventTag !== undefined && category !== "EVENTS") {
+    return NextResponse.json({ error: "Event tags can only be used with the EVENTS category." }, { status: 400 });
+  }
 
   const alert: VibePlace = {
     id: `alert-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
@@ -39,6 +59,14 @@ export async function POST(request: NextRequest) {
     address: "Community-submitted location",
     details: typeof details === "string" ? details.trim() : "",
     source: "Community alert",
+    ...((eventTag || Array.isArray(tags))
+      ? {
+        tags: [...new Set([
+          ...(typeof eventTag === "string" ? [eventTag.trim()] : []),
+          ...(Array.isArray(tags) ? tags.filter((tag): tag is string => typeof tag === "string").map((tag) => tag.trim()) : []),
+        ])],
+      }
+      : {}),
   };
   try {
     await saveAlert(alert);

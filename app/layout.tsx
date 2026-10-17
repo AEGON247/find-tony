@@ -36,6 +36,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en-AU">
+      <head>
+        <link rel="preconnect" href="https://a.basemaps.cartocdn.com" crossOrigin="anonymous" />
+      </head>
       <body className={`${displayFont.variable} ${bodyFont.variable}`}>{children}</body>
     </html>
   );

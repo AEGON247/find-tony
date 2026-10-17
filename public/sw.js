@@ -1,7 +1,7 @@
 const CACHE_PREFIX = "find-tony-";
-const APP_CACHE = `${CACHE_PREFIX}app-v4`;
-const DATA_CACHE = `${CACHE_PREFIX}data-v4`;
-const CATEGORIES = ["FOODIE", "PARTY", "HACKATHONS", "CHILL"];
+const APP_CACHE = `${CACHE_PREFIX}app-v5`;
+const DATA_CACHE = `${CACHE_PREFIX}data-v5`;
+const CATEGORIES = ["FOODIE", "PARTY", "EVENTS", "CHILL"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {

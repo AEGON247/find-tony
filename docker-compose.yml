@@ -8,6 +8,10 @@ services:
       PORT: "3000"
       HOSTNAME: 0.0.0.0
       DATA_DIR: /app/data
+      FOURSQUARE_API_KEY: ${FOURSQUARE_API_KEY:-}
+      FOURSQUARE_SERVICE_KEY: ${FOURSQUARE_SERVICE_KEY:-}
+      FOURSQUARE_KEY: ${FOURSQUARE_KEY:-}
+      EVENTBRITE_API_KEY: ${EVENTBRITE_API_KEY:-}
     volumes:
       - find-tony-data:/app/data
     restart: unless-stopped

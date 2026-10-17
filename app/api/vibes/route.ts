@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { distanceInMeters, isSydneyCoordinate } from "@/lib/geo";
 import { getSydneyLumaEvents } from "@/lib/luma";
+import { findNearbyEventbriteEvents } from "@/lib/eventbrite";
 import { getNearbyOpenStreetMapPlaces } from "@/lib/openstreetmap";
 import { readAlerts } from "@/lib/alerts";
+import { readPlaceTags } from "@/lib/place-tags";
 import { CATEGORIES, type Category, type VibePlace } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -32,16 +34,39 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Radius must be 1, 3, 5, or 10 km." }, { status: 400 });
   }
 
-  let places: VibePlace[] = (await readAlerts()).filter((place) => place.category === categoryValue);
-  const [live, osm] = await Promise.all([
-    getSydneyLumaEvents(),
-    lat !== undefined && lng !== undefined
+  let places: VibePlace[];
+  const [alerts, live, eventbrite, osm, communityTags] = await Promise.all([
+    readAlerts(),
+    categoryValue === "EVENTS"
+      ? getSydneyLumaEvents()
+      : Promise.resolve({ events: [] as VibePlace[], warnings: [] as string[] }),
+    categoryValue === "EVENTS" && lat !== undefined && lng !== undefined
+      ? findNearbyEventbriteEvents(lat, lng, radiusKm)
+      : Promise.resolve({ events: [] as VibePlace[], warning: undefined as string | undefined }),
+    categoryValue !== "EVENTS" && lat !== undefined && lng !== undefined
       ? getNearbyOpenStreetMapPlaces(lat, lng, radiusKm, categoryValue as Category)
       : Promise.resolve({ places: [], warnings: [] }),
+    readPlaceTags(),
   ]);
+  places = [...alerts.filter((place) => place.category === categoryValue)];
   places = [...live.events.filter((place) => place.category === categoryValue), ...places];
+  places = [...eventbrite.events, ...places];
   places = [...osm.places.filter((place) => place.category === categoryValue), ...places];
-  let warnings = [...live.warnings, ...osm.warnings];
+  const seenEventKeys = new Set<string>();
+  places = places.filter((place) => {
+    if (!place.isLiveEvent) return true;
+    const eventKey = `${place.title.trim().toLocaleLowerCase("en-AU")}:${place.eventStart ?? ""}`;
+    if (seenEventKeys.has(eventKey)) return false;
+    seenEventKeys.add(eventKey);
+    return true;
+  });
+  places = places.map((place) => ({
+    ...place,
+    tags: [...new Set([...(place.tags ?? []), ...(communityTags[place.id] ?? [])])],
+  }));
+  let warnings = categoryValue === "EVENTS"
+    ? [...live.warnings, ...(eventbrite.warning ? [eventbrite.warning] : [])]
+    : [...osm.warnings];
 
   if (lat !== undefined && lng !== undefined) {
     places = places
@@ -53,13 +78,14 @@ export async function GET(request: NextRequest) {
       .sort((left, right) => left.distanceMeters! - right.distanceMeters!);
   }
 
-  if (categoryValue === "HACKATHONS") {
-    warnings = places.length > 0
-      ? live.warnings
-      : live.warnings.length > 0
-        ? live.warnings
-        : [`No upcoming technology events were found within ${radiusKm} km. Try a larger search radius.`];
+  if (categoryValue === "EVENTS" && places.length === 0) {
+    warnings = warnings.length > 0
+      ? warnings
+      : [`No upcoming events were found within ${radiusKm} km. Try a larger search radius.`];
   }
 
-  return NextResponse.json({ items: places, warnings });
+  const source = categoryValue !== "EVENTS" && osm.warnings.some((warning) => /showing recently cached/i.test(warning))
+    ? "stale_cache"
+    : undefined;
+  return NextResponse.json({ items: places, warnings, ...(source ? { source } : {}) });
 }

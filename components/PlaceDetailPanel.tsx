@@ -2,8 +2,8 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
-import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, Clock3, Globe, MapPin, Navigation, Share2, Ticket, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, Clock3, Flag, Globe, MapPin, Navigation, Pencil, Share2, Ticket, X } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
 import type { VibePlace } from "@/lib/types";
 
 const SAVED_PLACES_KEY = "find-tony-saved-places-v1";
@@ -44,6 +44,9 @@ export default function PlaceDetailPanel({
   onClose,
   onNavigate,
   onNearby,
+  onTagAdded,
+  onReport,
+  userCoordinates,
   onCheckIn,
   checkedIn,
 }: {
@@ -51,6 +54,9 @@ export default function PlaceDetailPanel({
   onClose: () => void;
   onNavigate: (place: VibePlace) => void;
   onNearby: (place: VibePlace) => void;
+  onTagAdded: (placeId: string, tags: string[]) => void;
+  onReport: (place: VibePlace, reason: "not_a_place" | "closed" | "incorrect") => Promise<void>;
+  userCoordinates?: [number, number];
   onCheckIn: (place: VibePlace) => void;
   checkedIn: boolean;
 }) {
@@ -58,13 +64,67 @@ export default function PlaceDetailPanel({
   const [mobileExpanded, setMobileExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<DetailTab>("overview");
   const [savedPlaceIds, setSavedPlaceIds] = useState<string[]>([]);
+  const [tagEditorOpen, setTagEditorOpen] = useState(false);
+  const [tagError, setTagError] = useState("");
+  const [tagSaving, setTagSaving] = useState(false);
+  const [reportPromptOpen, setReportPromptOpen] = useState(false);
+  const [reportReason, setReportReason] = useState<"not_a_place" | "closed" | "incorrect">("not_a_place");
+  const [reportError, setReportError] = useState("");
+  const [reporting, setReporting] = useState(false);
   const start = formatEventTime(place?.eventStart);
   const end = formatEventTime(place?.eventEnd);
 
   useEffect(() => {
     setActiveTab("overview");
     setShareStatus("");
+    setTagEditorOpen(false);
+    setTagError("");
+    setReportPromptOpen(false);
+    setReportError("");
   }, [place?.id]);
+
+  async function addTag(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!place) return;
+    const form = new FormData(event.currentTarget);
+    const tag = String(form.get("place-tag") ?? "").trim().replace(/\s+/g, " ");
+    if (tag.length < 2 || tag.length > 32) {
+      setTagError("Enter a tag between 2 and 32 characters.");
+      return;
+    }
+    setTagSaving(true);
+    setTagError("");
+    try {
+      const response = await fetch("/api/place-tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ placeId: place.id, tag }),
+      });
+      const result = await response.json() as { tags?: string[]; error?: string };
+      if (!response.ok || !result.tags) throw new Error(result.error ?? "Could not add this tag.");
+      onTagAdded(place.id, [...new Set([...(place.tags ?? []), ...result.tags])]);
+      setTagEditorOpen(false);
+    } catch (error) {
+      setTagError(error instanceof Error ? error.message : "Could not add this tag.");
+    } finally {
+      setTagSaving(false);
+    }
+  }
+
+  async function submitReport() {
+    if (!place) return;
+    setReporting(true);
+    setReportError("");
+    try {
+      await onReport(place, reportReason);
+      setReportPromptOpen(false);
+      setShareStatus("REPORT SENT FOR REVIEW");
+    } catch (error) {
+      setReportError(error instanceof Error ? error.message : "Could not submit this report.");
+    } finally {
+      setReporting(false);
+    }
+  }
 
   useEffect(() => {
     try {
@@ -155,8 +215,16 @@ export default function PlaceDetailPanel({
           </div>
           <div className="place-detail-actions">
             <button className="place-detail-action place-detail-action--route" onClick={() => onNavigate(place)}>
-              <Navigation size={17} /><span>DIRECTIONS</span>
+              <Navigation size={17} /><span>IN-APP ROUTE</span>
             </button>
+            <a
+              className="place-detail-action place-detail-action--website"
+              href={`https://www.google.com/maps/dir/?api=1&${userCoordinates ? `origin=${userCoordinates[0]},${userCoordinates[1]}&` : ""}destination=${place.lat},${place.lng}&travelmode=walking`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Navigation size={17} /><span>WALK IN MAPS<ArrowUpRight size={12} /></span>
+            </a>
             <button className={`place-detail-action place-detail-action--save ${savedPlaceIds.includes(place.id) ? "is-saved" : ""}`} onClick={toggleSaved}>
               <Bookmark size={17} fill={savedPlaceIds.includes(place.id) ? "currentColor" : "none"} />
               <span>{savedPlaceIds.includes(place.id) ? "SAVED" : "SAVE"}</span>
@@ -187,6 +255,36 @@ export default function PlaceDetailPanel({
           </nav>
           <div className="place-detail-content">
             {shareStatus && <p className="share-status" role="status">{shareStatus}</p>}
+            <div className="place-tags" aria-label="Place tags">
+              {(place.tags ?? []).map((tag) => <span className="place-tag" key={tag}>{tag}</span>)}
+              <button
+                className="place-tag-edit"
+                aria-label="Add a tag"
+                title="Add a community tag"
+                onClick={() => { setTagEditorOpen((open) => !open); setTagError(""); }}
+              >
+                <Pencil size={13} />
+              </button>
+            </div>
+            {tagEditorOpen && (
+              <form className="place-tag-editor" onSubmit={addTag}>
+                <label htmlFor="place-tag-input">ADD A SHARED TAG</label>
+                <div>
+                  <input id="place-tag-input" name="place-tag" maxLength={32} minLength={2} required placeholder="Case competition" />
+                  <button className="button button-primary" disabled={tagSaving}>{tagSaving ? "SAVING..." : "ADD TAG"}</button>
+                </div>
+                {tagError && <p className="form-error" role="alert">{tagError}</p>}
+              </form>
+            )}
+            {place.isLiveEvent && (
+              <section className="place-detail-fact place-event-tags">
+                <Ticket size={16} />
+                <div>
+                  <h3>EVENT TYPE</h3>
+                  <p>{(place.tags?.length ? place.tags : ["Community event"]).join(" · ")}</p>
+                </div>
+              </section>
+            )}
             {activeTab === "overview" && (
               <>
                 <p className="place-address"><MapPin size={15} />{place.address}</p>
@@ -246,6 +344,28 @@ export default function PlaceDetailPanel({
                 <p>{place.details || "No additional place details are available."}</p>
                 {place.placeType && <p>Place type: {place.placeType}.</p>}
                 <p>Information source: {place.source}.</p>
+              </section>
+            )}
+            <button className="place-report-trigger" onClick={() => setReportPromptOpen((open) => !open)}>
+              <Flag size={13} /> REPORT NOT A SPOT
+            </button>
+            {reportPromptOpen && (
+              <section className="place-report-prompt" aria-label="Report this place">
+                <h3>IS THIS PLACE FAKE, CLOSED, OR INCORRECT?</h3>
+                {([
+                  ["not_a_place", "This is not a real place"],
+                  ["closed", "This place is closed"],
+                  ["incorrect", "The details are incorrect"],
+                ] as const).map(([value, label]) => (
+                  <label key={value}>
+                    <input type="radio" name="report-reason" checked={reportReason === value} onChange={() => setReportReason(value)} />
+                    {label}
+                  </label>
+                ))}
+                {reportError && <p className="form-error" role="alert">{reportError}</p>}
+                <button className="button button-primary" disabled={reporting} onClick={submitReport}>
+                  {reporting ? "SENDING REPORT..." : "SUBMIT REPORT"}
+                </button>
               </section>
             )}
             {place.distanceMeters !== undefined && place.distanceMeters <= 50 && (

@@ -1,0 +1,145 @@
+[
+  {
+    "id": "food-unsw-banh-mi",
+    "title": "Anzac Parade Banh Mi",
+    "category": "FOODIE",
+    "lat": -33.9204,
+    "lng": 151.2265,
+    "details": "Student-friendly banh mi options along Anzac Parade. Confirm current prices with the venue.",
+    "rating": 4.4,
+    "link": "https://www.google.com/maps/search/?api=1&query=banh+mi+Anzac+Parade+Kensington+NSW",
+    "source": "Local discovery pick"
+  },
+  {
+    "id": "food-usyd-wentworth",
+    "title": "Wentworth Building Food Hub",
+    "category": "FOODIE",
+    "lat": -33.8882,
+    "lng": 151.1909,
+    "details": "Campus food options inside the University of Sydney's Wentworth Building. Check venue hours before visiting.",
+    "rating": 4.2,
+    "link": "https://www.google.com/maps/search/?api=1&query=Wentworth+Building+University+of+Sydney",
+    "source": "Campus guide"
+  },
+  {
+    "id": "food-newtown-eats",
+    "title": "Newtown Cheap Eats Strip",
+    "category": "FOODIE",
+    "lat": -33.8973,
+    "lng": 151.1797,
+    "details": "Explore student-budget cafes and casual restaurants along King Street.",
+    "rating": 4.6,
+    "link": "https://www.google.com/maps/search/?api=1&query=cheap+eats+King+Street+Newtown+NSW",
+    "source": "Local discovery pick"
+  },
+  {
+    "id": "party-manning-bar",
+    "title": "Manning Bar",
+    "category": "PARTY",
+    "lat": -33.8884,
+    "lng": 151.1877,
+    "details": "University of Sydney student venue. Check the official page for current events and entry details.",
+    "rating": 4.5,
+    "link": "https://www.manningbar.com/",
+    "source": "Official venue"
+  },
+  {
+    "id": "party-roundhouse",
+    "title": "Roundhouse",
+    "category": "PARTY",
+    "lat": -33.9172,
+    "lng": 151.2312,
+    "details": "UNSW campus venue. Check the event calendar for current opening times and shows.",
+    "rating": 4.3,
+    "link": "https://www.roundhouse.org.au/",
+    "source": "Official venue"
+  },
+  {
+    "id": "party-marlborough",
+    "title": "The Marlborough Hotel",
+    "category": "PARTY",
+    "lat": -33.8971,
+    "lng": 151.1792,
+    "details": "Newtown pub and live-music venue. Check the venue site for its current program.",
+    "rating": 4.1,
+    "link": "https://www.google.com/maps/search/?api=1&query=Marlborough+Hotel+Newtown+NSW",
+    "source": "Local discovery pick"
+  },
+  {
+    "id": "party-lansdowne",
+    "title": "The Lansdowne",
+    "category": "PARTY",
+    "lat": -33.8838,
+    "lng": 151.1962,
+    "details": "Chippendale live-music pub. Check the official page for upcoming shows.",
+    "rating": 4.2,
+    "link": "https://www.lansdownepub.com.au/",
+    "source": "Official venue"
+  },
+  {
+    "id": "hack-unsw-founders",
+    "title": "UNSW Founders",
+    "category": "HACKATHONS",
+    "lat": -33.9178,
+    "lng": 151.2311,
+    "details": "Startup and founder community at UNSW. Check the official events page for pitch nights and programs.",
+    "rating": 4.5,
+    "link": "https://unswfounders.com/",
+    "source": "Official program"
+  },
+  {
+    "id": "hack-startup-hub",
+    "title": "Sydney Startup Hub",
+    "category": "HACKATHONS",
+    "lat": -33.8688,
+    "lng": 151.2085,
+    "details": "Central startup community hub. Check current event listings before heading over.",
+    "rating": 4.3,
+    "link": "https://www.google.com/maps/search/?api=1&query=Sydney+Startup+Hub",
+    "source": "Local discovery pick"
+  },
+  {
+    "id": "hack-uts-data-arena",
+    "title": "UTS Data Arena",
+    "category": "HACKATHONS",
+    "lat": -33.8833,
+    "lng": 151.2005,
+    "details": "Immersive data visualisation facility at UTS. Check UTS listings for public sessions and events.",
+    "rating": 4.4,
+    "link": "https://www.uts.edu.au/partners-and-community/initiatives/uts-data-arena",
+    "source": "Official university"
+  },
+  {
+    "id": "chill-unsw-library",
+    "title": "UNSW Library",
+    "category": "CHILL",
+    "lat": -33.9173,
+    "lng": 151.2313,
+    "details": "Quiet study areas on the UNSW Kensington campus. Verify current opening hours with the library.",
+    "rating": 4.4,
+    "link": "https://www.library.unsw.edu.au/",
+    "source": "Official university"
+  },
+  {
+    "id": "chill-usyd-fisher",
+    "title": "Fisher Library",
+    "category": "CHILL",
+    "lat": -33.8886,
+    "lng": 151.1872,
+    "details": "Study spaces at the University of Sydney. Check current access hours and student entry requirements.",
+    "rating": 4.6,
+    "link": "https://www.library.sydney.edu.au/libraries/fisher",
+    "source": "Official university"
+  },
+  {
+    "id": "chill-law-study",
+    "title": "Law Library Study Spaces",
+    "category": "CHILL",
+    "lat": -33.8896,
+    "lng": 151.1905,
+    "details": "Study spaces near the University of Sydney Law School. Confirm access and building hours before visiting.",
+    "rating": 4.1,
+    "link": "https://www.google.com/maps/search/?api=1&query=Law+Library+University+of+Sydney",
+    "source": "Local discovery pick"
+  }
+]

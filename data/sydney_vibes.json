@@ -1,0 +1,140 @@
+[
+  {
+    "id": "unsw-mcic-hackathon",
+    "title": "MCIC Founders Hackerspace",
+    "category": "HACKATHONS",
+    "lat": -33.9172,
+    "lng": 151.2312,
+    "address": "E10 Allen Space, UNSW Kensington",
+    "details": "UNSW founders and prototyping community. Live hackathon listings are loaded from Eventbrite when available.",
+    "source": "UNSW Founders community",
+    "link": "https://unswfounders.com/"
+  },
+  {
+    "id": "anzac-parade-banh-mi",
+    "title": "Hong Ha Anzac Parade",
+    "category": "FOODIE",
+    "lat": -33.9231,
+    "lng": 151.2291,
+    "address": "Anzac Parade, Kingsford",
+    "details": "Student-friendly banh mi near campus. Check with the venue for current prices and opening hours.",
+    "source": "Local discovery pick",
+    "link": "https://www.google.com/maps/search/?api=1&query=Hong+Ha+Anzac+Parade+Sydney"
+  },
+  {
+    "id": "unsw-main-library",
+    "title": "UNSW Main Library",
+    "category": "CHILL",
+    "lat": -33.9175,
+    "lng": 151.2335,
+    "address": "Library Lawn, UNSW Kensington",
+    "details": "Campus study spaces. Check current opening hours and student access requirements with UNSW Library.",
+    "source": "UNSW Library",
+    "link": "https://www.library.unsw.edu.au/"
+  },
+  {
+    "id": "roundhouse-unsw",
+    "title": "UNSW Roundhouse",
+    "category": "PARTY",
+    "lat": -33.9165,
+    "lng": 151.2268,
+    "address": "Anzac Parade Entrance, UNSW",
+    "details": "UNSW campus venue. See the official calendar for current events, entry details, and hours.",
+    "source": "Official venue",
+    "link": "https://www.roundhouse.org.au/"
+  },
+  {
+    "id": "food-usyd-wentworth",
+    "title": "Wentworth Building Food Hub",
+    "category": "FOODIE",
+    "lat": -33.8882,
+    "lng": 151.1909,
+    "address": "University of Sydney, Camperdown",
+    "details": "Campus food options. Check current opening hours and offers before visiting.",
+    "source": "Campus guide"
+  },
+  {
+    "id": "food-newtown-eats",
+    "title": "Newtown Cheap Eats Strip",
+    "category": "FOODIE",
+    "lat": -33.8973,
+    "lng": 151.1797,
+    "address": "King Street, Newtown",
+    "details": "Explore casual restaurants and cafes along King Street.",
+    "source": "Local discovery pick"
+  },
+  {
+    "id": "party-manning-bar",
+    "title": "Manning Bar",
+    "category": "PARTY",
+    "lat": -33.8884,
+    "lng": 151.1877,
+    "address": "University of Sydney, Camperdown",
+    "details": "University of Sydney student venue. Check the official page for current events and entry details.",
+    "source": "Official venue",
+    "link": "https://www.manningbar.com/"
+  },
+  {
+    "id": "party-marlborough",
+    "title": "The Marlborough Hotel",
+    "category": "PARTY",
+    "lat": -33.8971,
+    "lng": 151.1792,
+    "address": "Newtown",
+    "details": "Newtown pub and live-music venue. Check the venue for its current program.",
+    "source": "Local discovery pick"
+  },
+  {
+    "id": "party-lansdowne",
+    "title": "The Lansdowne",
+    "category": "PARTY",
+    "lat": -33.8838,
+    "lng": 151.1962,
+    "address": "Chippendale",
+    "details": "Live-music pub. See the official page for upcoming shows.",
+    "source": "Official venue",
+    "link": "https://www.lansdownepub.com.au/"
+  },
+  {
+    "id": "hack-startup-hub",
+    "title": "Sydney Startup Hub",
+    "category": "HACKATHONS",
+    "lat": -33.8688,
+    "lng": 151.2085,
+    "address": "Sydney CBD",
+    "details": "Sydney startup community. Current hackathons and registration links are shown from live Eventbrite listings.",
+    "source": "Community location"
+  },
+  {
+    "id": "hack-uts-data-arena",
+    "title": "UTS Data Arena",
+    "category": "HACKATHONS",
+    "lat": -33.8833,
+    "lng": 151.2005,
+    "address": "University of Technology Sydney, Ultimo",
+    "details": "UTS data visualisation facility. Check UTS listings for public sessions and events.",
+    "source": "UTS",
+    "link": "https://www.uts.edu.au/partners-and-community/initiatives/uts-data-arena"
+  },
+  {
+    "id": "chill-usyd-fisher",
+    "title": "Fisher Library",
+    "category": "CHILL",
+    "lat": -33.8886,
+    "lng": 151.1872,
+    "address": "University of Sydney, Camperdown",
+    "details": "Study spaces at the University of Sydney. Confirm current access hours and student entry requirements.",
+    "source": "University of Sydney",
+    "link": "https://www.library.sydney.edu.au/libraries/fisher"
+  },
+  {
+    "id": "chill-law-study",
+    "title": "Law Library Study Spaces",
+    "category": "CHILL",
+    "lat": -33.8896,
+    "lng": 151.1905,
+    "address": "University of Sydney, Camperdown",
+    "details": "Study spaces near the University of Sydney Law School. Confirm access and building hours.",
+    "source": "Campus guide"
+  }
+]

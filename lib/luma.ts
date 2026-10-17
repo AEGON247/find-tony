@@ -1,6 +1,7 @@
 import "server-only";
-import type { Category, VibePlace } from "@/lib/types";
+import type { VibePlace } from "@/lib/types";
 import { isSydneyCoordinate } from "@/lib/geo";
+import { inferEventTags } from "@/lib/event-tags";
 
 interface LumaEvent {
   api_id?: string;
@@ -43,34 +44,15 @@ let cachedEvents: VibePlace[] | null = null;
 let lastFetchTime = 0;
 let inFlight: Promise<LumaEventsResult> | null = null;
 
-function inferCategory(name: string): Category | null {
-  const text = name.toLowerCase();
-  if (/\b(hackathon|hack|coding|code|developer|dev|builder|build|startups?|founders?|ai|machine learning|data|technology|tech meetup|demo night|software|programming)\b/.test(text)) {
-    return "HACKATHONS";
-  }
-  if (/\b(party|drinks|pub|bar|dj|music|club|dance|nightlife|gig|concert)\b/.test(text)) {
-    return "PARTY";
-  }
-  if (/\b(study|cowork|co-work|wellness|meditation|yoga|walk|run|fitness|mindful|book club|quiet)\b/.test(text)) {
-    return "CHILL";
-  }
-  if (/\b(food|dinner|brunch|lunch|pizza|cooking|tasting|restaurant|cafe|coffee|bakery|banh mi)\b/.test(text)) {
-    return "FOODIE";
-  }
-  return null;
-}
-
 function mapEntry(entry: LumaEntry): VibePlace | null {
   const event = entry.event;
   const title = event?.name?.trim();
-  const category = title ? inferCategory(title) : null;
   const latitude = event?.coordinate?.latitude;
   const longitude = event?.coordinate?.longitude;
 
   if (
     !event?.api_id ||
     !title ||
-    !category ||
     typeof latitude !== "number" ||
     typeof longitude !== "number" ||
     !Number.isFinite(latitude) ||
@@ -104,7 +86,8 @@ function mapEntry(entry: LumaEntry): VibePlace | null {
   return {
     id: `luma-${event.api_id}`,
     title,
-    category,
+    category: "EVENTS",
+    tags: inferEventTags(title),
     lat: latitude,
     lng: longitude,
     address: event.geo_address_info?.full_address || "Address not listed",

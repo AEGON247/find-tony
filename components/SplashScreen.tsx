@@ -7,7 +7,7 @@ import { Zap } from "lucide-react";
 const signals = [
   { label: "FOODIE", color: "#ec4899", icon: "F" },
   { label: "PARTY", color: "#8b5cf6", icon: "P" },
-  { label: "HACKATHONS", color: "#06b6d4", icon: "H" },
+  { label: "EVENTS", color: "#06b6d4", icon: "E" },
   { label: "CHILL", color: "#b7f36b", icon: "C" },
 ];
 const messages = ["TUNING IN...", "LOCATING SYDNEY SIGNALS...", "RADAR READY"];

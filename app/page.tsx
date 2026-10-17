@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { AnimatePresence } from "framer-motion";
+import { Navigation } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import AlertModal from "@/components/AlertModal";
 import PlaceDetailPanel from "@/components/PlaceDetailPanel";
@@ -19,6 +20,7 @@ interface CheckInRecord {
   checkedAt: string;
 }
 const CHECK_INS_KEY = "find-tony-check-ins-v1";
+const REPORTED_PLACES_KEY = "find-tony-reported-places-v1";
 
 function localDateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -31,7 +33,7 @@ const MapCanvas = dynamic(() => import("@/components/MapCanvas"), {
 
 function FindTonyApp() {
   const {
-    profile, coordinates, locationLabel, requestLocation, requestHeading,
+    profile, updateProfile, coordinates, locationLabel, requestLocation, requestHeading,
   } = useVibe();
   const [categoryOverride, setCategoryOverride] = useState<Category>();
   const category = categoryOverride ?? profile.primaryVibe;
@@ -42,6 +44,8 @@ function FindTonyApp() {
   const [navigationTarget, setNavigationTarget] = useState<VibePlace>();
   const [searchCenter, setSearchCenter] = useState<[number, number]>();
   const [places, setPlaces] = useState<VibePlace[]>([]);
+  const [reportedPlaceIds, setReportedPlaceIds] = useState<string[]>([]);
+  const [communityStatus, setCommunityStatus] = useState("");
   const [warnings, setWarnings] = useState<string[]>([]);
   const [refresh, setRefresh] = useState(0);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent>();
@@ -53,8 +57,8 @@ function FindTonyApp() {
     const params = new URLSearchParams(window.location.search);
     sharedPlaceId.current = params.get("placeId") ?? undefined;
     const sharedCategory = params.get("category");
-    if (sharedCategory && ["FOODIE", "PARTY", "HACKATHONS", "CHILL"].includes(sharedCategory)) {
-      setCategoryOverride(sharedCategory as Category);
+    if (sharedCategory && ["FOODIE", "PARTY", "EVENTS", "CHILL", "HACKATHONS"].includes(sharedCategory)) {
+      setCategoryOverride((sharedCategory === "HACKATHONS" ? "EVENTS" : sharedCategory) as Category);
     }
   }, []);
 
@@ -64,11 +68,13 @@ function FindTonyApp() {
       if (saved) {
         const parsed: unknown = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          setCheckIns(parsed.filter((record): record is CheckInRecord =>
+          setCheckIns(parsed.flatMap((record): CheckInRecord[] =>
             typeof record?.placeId === "string" &&
-            ["FOODIE", "PARTY", "HACKATHONS", "CHILL"].includes(record.category) &&
+            ["FOODIE", "PARTY", "EVENTS", "HACKATHONS", "CHILL"].includes(record.category) &&
             typeof record.checkedAt === "string" &&
-            Number.isFinite(Date.parse(record.checkedAt)),
+            Number.isFinite(Date.parse(record.checkedAt))
+              ? [{ ...record, category: record.category === "HACKATHONS" ? "EVENTS" : record.category }]
+              : [],
           ));
         }
       }
@@ -76,6 +82,19 @@ function FindTonyApp() {
       console.warn("Could not load local check-in history.");
     }
     setCheckInsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(REPORTED_PLACES_KEY);
+      if (!saved) return;
+      const parsed: unknown = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.every((id) => typeof id === "string")) {
+        setReportedPlaceIds(parsed);
+      }
+    } catch (error) {
+      console.error("Could not load locally hidden places.", error);
+    }
   }, []);
 
   useEffect(() => {
@@ -161,6 +180,47 @@ function FindTonyApp() {
     setNavigationTarget(undefined);
   }
 
+  function addPlaceTag(placeId: string, tags: string[]) {
+    setPlaces((current) => current.map((place) => place.id === placeId ? { ...place, tags } : place));
+    setSelected((current) => current?.id === placeId ? { ...current, tags } : current);
+  }
+
+  async function reportPlace(place: VibePlace, reason: "not_a_place" | "closed" | "incorrect") {
+    const nextReportedIds = [...new Set([...reportedPlaceIds, place.id])];
+    setReportedPlaceIds(nextReportedIds);
+    setPlaces((current) => current.filter((item) => item.id !== place.id));
+    try {
+      localStorage.setItem(REPORTED_PLACES_KEY, JSON.stringify(nextReportedIds));
+    } catch (error) {
+      console.error("Could not persist local place suppression.", error);
+    }
+    try {
+      const response = await fetch("/api/reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          placeId: place.id,
+          reason,
+          lat: coordinates?.[0],
+          lng: coordinates?.[1],
+        }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Could not submit this report.");
+      setCommunityStatus("REPORT SENT FOR TEAM REVIEW");
+      window.setTimeout(() => setCommunityStatus(""), 5000);
+      setSelected(undefined);
+    } catch (error) {
+      setReportedPlaceIds((ids) => ids.filter((id) => id !== place.id));
+      try {
+        localStorage.setItem(REPORTED_PLACES_KEY, JSON.stringify(reportedPlaceIds.filter((id) => id !== place.id)));
+      } catch (storageError) {
+        console.error("Could not restore local place visibility.", storageError);
+      }
+      throw error;
+    }
+  }
+
   function checkIn(place: VibePlace) {
     if (!coordinates || distanceInMeters(coordinates[0], coordinates[1], place.lat, place.lng) > 50) return;
     const checkedAt = new Date().toISOString();
@@ -191,7 +251,7 @@ function FindTonyApp() {
   const badges = [
     ...(checkIns.length > 0 ? ["FIRST SIGNAL"] : []),
     ...(checkIns.some((record) => record.category === "PARTY") ? ["NIGHT OWL"] : []),
-    ...(checkIns.some((record) => record.category === "HACKATHONS") ? ["HACKATHON RUNNER"] : []),
+    ...(checkIns.some((record) => record.category === "EVENTS") ? ["EVENT EXPLORER"] : []),
     ...(checkIns.filter((record) => record.category === "FOODIE").length >= 5 ? ["CAMPUS FOODIE"] : []),
     ...(uniqueWeeklyPlaces >= 3 ? ["WEEKLY EXPLORER"] : []),
   ];
@@ -211,6 +271,11 @@ function FindTonyApp() {
           navigationTarget={navigationTarget}
           searchCenter={searchCenter}
           onResetSearchCenter={() => setSearchCenter(undefined)}
+          onExpandRadar={() => {
+            if (profile.radiusKm < 10) updateProfile({ ...profile, radiusKm: 10 });
+            else setRefresh((value) => value + 1);
+          }}
+          reportedPlaceIds={reportedPlaceIds}
           onSelect={selectPlace}
           onPlacesLoaded={handlePlacesLoaded}
           onWarnings={handleWarnings}
@@ -226,14 +291,35 @@ function FindTonyApp() {
         {coordinates && <button className="button button-alert" onClick={() => setAlertOpen(true)}>
           <span aria-hidden="true">+</span> DROP A SPOT
         </button>}
-        {warnings.length > 0 && (
+        {warnings.length > 0 && places.length > 0 && (
           <div className="api-warning" role="status">{warnings.join(" ")}</div>
         )}
+        {navigationTarget && coordinates && (
+          <div className="navigation-hud" role="status">
+            <Navigation size={17} aria-hidden="true" />
+            <span>WALKING TO {navigationTarget.title.toUpperCase()} · {Math.round(distanceInMeters(coordinates[0], coordinates[1], navigationTarget.lat, navigationTarget.lng))} METRES</span>
+            <button
+              className="navigation-hud-maps"
+              onClick={() => window.open(
+                `https://www.google.com/maps/dir/?api=1&origin=${coordinates[0]},${coordinates[1]}&destination=${navigationTarget.lat},${navigationTarget.lng}&travelmode=walking`,
+                "_blank",
+                "noopener,noreferrer",
+              )}
+            >
+              OPEN MAPS
+            </button>
+            <button className="navigation-hud-close" aria-label="End navigation" onClick={() => setNavigationTarget(undefined)}>×</button>
+          </div>
+        )}
+        {communityStatus && <div className="community-status" role="status">{communityStatus}</div>}
         <PlaceDetailPanel
           place={selected}
           onClose={closePlace}
           onNavigate={navigateTo}
           onNearby={showNearby}
+          onTagAdded={addPlaceTag}
+          onReport={reportPlace}
+          userCoordinates={coordinates}
           onCheckIn={checkIn}
           checkedIn={checkedToday}
         />

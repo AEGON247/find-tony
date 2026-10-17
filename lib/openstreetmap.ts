@@ -30,6 +30,32 @@ interface NominatimPlace {
   extratags?: Record<string, string | undefined>;
 }
 
+interface FoursquarePlace {
+  fsq_id?: string;
+  fsq_place_id?: string;
+  name?: string;
+  categories?: Array<{ name?: string; short_name?: string }>;
+  geocodes?: {
+    main?: { latitude?: number; longitude?: number };
+    roof?: { latitude?: number; longitude?: number };
+  };
+  location?: {
+    formatted_address?: string;
+    address?: string;
+    locality?: string;
+    region?: string;
+  };
+  description?: string;
+  website?: string;
+  hours?: { display?: string; open_now?: boolean };
+  tel?: string;
+  photos?: Array<{ prefix?: string; suffix?: string }>;
+}
+
+interface FoursquareResponse {
+  results?: FoursquarePlace[];
+}
+
 interface PlacesResult {
   places: VibePlace[];
   warnings: string[];
@@ -37,6 +63,7 @@ interface PlacesResult {
 
 interface CacheEntry extends PlacesResult {
   cachedAt: number;
+  lastAttemptAt?: number;
 }
 
 const CACHE_DURATION_MS = 30 * 60 * 1000;
@@ -48,8 +75,9 @@ const OVERPASS_ENDPOINTS = [
   "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
   "https://overpass-api.de/api/interpreter",
 ];
-const OVERPASS_TIMEOUT_MS = 1_800;
-const OVERPASS_TOTAL_TIMEOUT_MS = 2_400;
+const OVERPASS_TIMEOUT_MS = 1_500;
+const FOURSQUARE_TIMEOUT_MS = 2_500;
+const FOURSQUARE_FAILURE_COOLDOWN_MS = 60 * 1000;
 const NOMINATIM_TIMEOUT_MS = 3_000;
 const NOMINATIM_MINIMUM_INTERVAL_MS = 1_100;
 const cache = new Map<string, CacheEntry>();
@@ -57,6 +85,7 @@ const inFlight = new Map<string, Promise<PlacesResult>>();
 const overpassCooldowns = new Map<string, number>();
 let nextNominatimRequestAt = 0;
 let nominatimQueue: Promise<void> = Promise.resolve();
+let foursquareCooldownUntil = 0;
 
 async function waitForNominatimSlot() {
   const slot = nominatimQueue.then(async () => {
@@ -92,9 +121,7 @@ function mapElement(element: OverpassElement): VibePlace | null {
     ? "PARTY"
     : ["restaurant", "cafe", "fast_food", "food_court"].includes(amenity ?? "")
       ? "FOODIE"
-      : ["hackerspace", "events_venue"].includes(amenity ?? "")
-        ? "HACKATHONS"
-        : ["library", "coworking_space", "community_centre"].includes(amenity ?? "") || ["park", "garden"].includes(leisure ?? "")
+      : ["library", "coworking_space", "community_centre"].includes(amenity ?? "") || ["park", "garden"].includes(leisure ?? "")
           ? "CHILL"
           : undefined;
   if (!category) return null;
@@ -179,7 +206,7 @@ function isCategoryAmenity(amenity: string | undefined, category: Category) {
   const categoryTypes: Record<Category, string[]> = {
     FOODIE: ["restaurant", "cafe", "fast_food", "food_court"],
     PARTY: ["bar", "pub", "nightclub"],
-    HACKATHONS: ["hackerspace", "events_venue"],
+    EVENTS: [],
     CHILL: ["library", "coworking_space", "community_centre", "park", "garden"],
   };
   return categoryTypes[category].includes(amenity ?? "");
@@ -288,25 +315,25 @@ async function fetchFromOverpass(
   lng: number,
   radiusKm: number,
   category: Category,
-): Promise<VibePlace[]> {
+): Promise<VibePlace[] | null> {
   const radiusMeters = Math.round(radiusKm * 1000);
   const around = `(around:${radiusMeters},${lat},${lng})`;
   const tagQuery: Record<Category, string> = {
     FOODIE: `nwr["amenity"~"^(restaurant|cafe|fast_food|food_court)$"]["name"]${around};`,
     PARTY: `nwr["amenity"~"^(bar|pub|nightclub)$"]["name"]${around};`,
-    HACKATHONS: `nwr["amenity"~"^(hackerspace|events_venue)$"]["name"]${around};`,
+    EVENTS: "",
     CHILL: `nwr["amenity"~"^(library|coworking_space|community_centre)$"]["name"]${around};nwr["leisure"~"^(park|garden)$"]["name"]${around};`,
   };
-  const query = `[out:json][timeout:8];(${tagQuery[category]});out center 100;`;
+  const query = `[out:json][timeout:1];(${tagQuery[category]});out center 100;`;
   const failures: string[] = [];
-  const deadline = Date.now() + OVERPASS_TOTAL_TIMEOUT_MS;
-
-  for (const endpoint of OVERPASS_ENDPOINTS) {
-    const remainingMs = deadline - Date.now();
-    if (remainingMs <= 0) break;
+  const controller = new AbortController();
+  const abortTimeout = setTimeout(() => controller.abort(), OVERPASS_TIMEOUT_MS);
+  let successfulResponse = false;
+  const attempts = OVERPASS_ENDPOINTS.map(async (endpoint) => {
     const cooldownUntil = overpassCooldowns.get(endpoint) ?? 0;
-    if (cooldownUntil > Date.now()) continue;
-
+    if (cooldownUntil > Date.now()) {
+      throw new Error(`${new URL(endpoint).hostname}: provider is cooling down`);
+    }
     try {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -316,31 +343,44 @@ async function fetchFromOverpass(
           "User-Agent": "FindTony/1.0 (public Sydney place discovery)",
         },
         body: new URLSearchParams({ data: query }),
-        signal: AbortSignal.timeout(Math.min(OVERPASS_TIMEOUT_MS, remainingMs)),
+        signal: controller.signal,
         cache: "no-store",
       });
       if (!response.ok) {
-        failures.push(`${new URL(endpoint).hostname}: HTTP ${response.status}`);
         if (response.status === 429 || response.status >= 500) {
           overpassCooldowns.set(endpoint, Date.now() + OVERPASS_COOLDOWN_MS);
         }
-        continue;
+        throw new Error(`HTTP ${response.status}`);
       }
       overpassCooldowns.delete(endpoint);
       const payload = await response.json() as OverpassResponse;
-      const places = (payload.elements ?? [])
+      if (!Array.isArray(payload.elements)) {
+        throw new Error("Overpass returned an invalid response.");
+      }
+      const places = payload.elements
         .map(mapElement)
         .filter((place): place is VibePlace => place !== null);
-      if (places.length > 0) return places;
+      successfulResponse = true;
+      return places;
     } catch (error: unknown) {
-      failures.push(`${new URL(endpoint).hostname}: ${error instanceof Error ? error.message : "request failed"}`);
-      overpassCooldowns.set(endpoint, Date.now() + OVERPASS_COOLDOWN_MS);
+      if (!(controller.signal.aborted && successfulResponse)) {
+        overpassCooldowns.set(endpoint, Date.now() + OVERPASS_COOLDOWN_MS);
+        failures.push(`${new URL(endpoint).hostname}: ${error instanceof Error ? error.message : "request failed"}`);
+      }
+      throw error;
     }
+  });
+  try {
+    return await Promise.any(attempts);
+  } catch {
+    if (failures.length > 0) {
+      console.warn("Overpass endpoints failed.", failures);
+    }
+    return null;
+  } finally {
+    clearTimeout(abortTimeout);
+    controller.abort();
   }
-  if (failures.length > 0) {
-    console.warn("Overpass endpoints failed or returned no nearby named places.", failures);
-  }
-  return [];
 }
 
 async function fetchFromNominatim(
@@ -358,7 +398,7 @@ async function fetchFromNominatim(
     q: {
       FOODIE: "cafe",
       PARTY: "bar",
-      HACKATHONS: "hackerspace",
+      EVENTS: "event",
       CHILL: "library",
     }[category],
     viewbox: [
@@ -387,14 +427,149 @@ async function fetchFromNominatim(
     .filter((place): place is VibePlace => place !== null);
 }
 
+function foursquareCategory(place: FoursquarePlace): Category | undefined {
+  const categoryNames = (place.categories ?? [])
+    .map((category) => `${category.name ?? ""} ${category.short_name ?? ""}`.toLowerCase())
+    .join(" ");
+  if (/\b(bar|pub|nightclub|nightlife|club|brewery|cocktail)\b/.test(categoryNames)) return "PARTY";
+  if (/\b(library|park|garden|study|coworking)\b/.test(categoryNames)) return "CHILL";
+  if (/\b(hackathon|startup|college|university|technology|software|computer)\b/.test(categoryNames)) return undefined;
+  if (/\b(restaurant|cafe|coffee|food|dining|bakery|fast food|food truck)\b/.test(categoryNames)) return "FOODIE";
+  return undefined;
+}
+
+async function fetchFromFoursquare(
+  lat: number,
+  lng: number,
+  radiusKm: number,
+  category: Category,
+): Promise<VibePlace[]> {
+  const apiKey = [
+    process.env.FOURSQUARE_API_KEY,
+    process.env.FOURSQUARE_SERVICE_KEY,
+    process.env.FOURSQUARE_KEY,
+  ]
+    .map((value) => {
+      const trimmed = value?.trim() ?? "";
+      return /^(['"]).*\1$/.test(trimmed) ? trimmed.slice(1, -1).trim() : trimmed;
+    })
+    .find(Boolean) ?? "";
+  if (!apiKey) return [];
+  if (foursquareCooldownUntil > Date.now()) return [];
+
+  const params = new URLSearchParams({
+    ll: `${lat},${lng}`,
+    radius: String(Math.round(radiusKm * 1000)),
+    categories: "13000,10000,12125,11180",
+    limit: "35",
+    fields: "fsq_place_id,name,categories,geocodes,location,description,website,hours,tel,photos",
+  });
+  let response: Response;
+  try {
+    response = await fetch(`https://places-api.foursquare.com/places/search?${params}`, {
+      headers: {
+        Accept: "application/json",
+        Authorization: apiKey,
+        "X-Places-Api-Version": "2025-06-17",
+      },
+      signal: AbortSignal.timeout(FOURSQUARE_TIMEOUT_MS),
+      cache: "no-store",
+    });
+  } catch (error: unknown) {
+    foursquareCooldownUntil = Date.now() + 15_000;
+    throw error;
+  }
+  if (!response.ok) {
+    foursquareCooldownUntil = Date.now() + (
+      response.status === 401 || response.status === 403
+        ? 5 * 60 * 1000
+        : response.status === 429 || response.status >= 500
+          ? FOURSQUARE_FAILURE_COOLDOWN_MS
+          : 15_000
+    );
+    if (response.status === 401 || response.status === 403) {
+      console.warn("[Foursquare Auth Warning] Key unauthorized, falling back to live map providers.");
+    }
+    throw new Error(`Foursquare Places returned HTTP ${response.status}.`);
+  }
+  foursquareCooldownUntil = 0;
+
+  const payload = await response.json() as FoursquareResponse;
+  return (payload.results ?? [])
+    .flatMap((place): VibePlace[] => {
+      const latitude = place.geocodes?.main?.latitude ?? place.geocodes?.roof?.latitude;
+      const longitude = place.geocodes?.main?.longitude ?? place.geocodes?.roof?.longitude;
+      const mappedCategory = foursquareCategory(place);
+      if (
+        !(place.fsq_place_id || place.fsq_id) ||
+        !place.name?.trim() ||
+        mappedCategory !== category ||
+        typeof latitude !== "number" ||
+        typeof longitude !== "number" ||
+        !isSydneyCoordinate(latitude, longitude)
+      ) {
+        return [];
+      }
+
+      const website = place.website?.trim();
+      let link: string | undefined;
+      if (website) {
+        try {
+          const parsed = new URL(website.startsWith("http") ? website : `https://${website}`);
+          if (parsed.protocol === "https:" || parsed.protocol === "http:") link = parsed.toString();
+        } catch {
+          link = undefined;
+        }
+      }
+      const photo = place.photos?.[0];
+      const imageUrl = photo?.prefix && photo.suffix
+        ? `${photo.prefix}300x200${photo.suffix}`
+        : undefined;
+      const location = place.location;
+      const address = location?.formatted_address ||
+        [location?.address, location?.locality, location?.region].filter(Boolean).join(", ");
+      const categoryName = place.categories?.find((item) => item.name)?.name;
+
+      return [{
+        id: `foursquare-${place.fsq_place_id ?? place.fsq_id}`,
+        title: place.name.trim(),
+        category,
+        lat: latitude,
+        lng: longitude,
+        address: address || "Address not listed",
+        details: place.description?.trim() || categoryName || "Nearby place listed by Foursquare.",
+        placeType: categoryName,
+        imageUrl,
+        source: "Foursquare Places",
+        link,
+        eventDetails: {
+          ...(place.hours?.display ? { hours: place.hours.display } : {}),
+          ...(place.hours?.open_now !== undefined
+            ? { status: place.hours.open_now ? "Open now" : "Currently closed" }
+            : {}),
+        },
+        isMapPoi: true,
+        distanceMeters: Math.round(distanceInMeters(lat, lng, latitude, longitude)),
+      }];
+    });
+}
+
 async function fetchPlaces(
   lat: number,
   lng: number,
   radiusKm: number,
   category: Category,
 ): Promise<PlacesResult> {
+  if (category === "EVENTS") return Promise.resolve({ places: [], warnings: [] });
   const overpassPlaces = await fetchFromOverpass(lat, lng, radiusKm, category);
-  if (overpassPlaces.length > 0) return { places: overpassPlaces, warnings: [] };
+  if (overpassPlaces !== null) return { places: overpassPlaces, warnings: [] };
+
+  try {
+    const foursquarePlaces = await fetchFromFoursquare(lat, lng, radiusKm, category);
+    if (foursquarePlaces.length > 0) return { places: foursquarePlaces, warnings: [] };
+  } catch (error: unknown) {
+    console.error("Foursquare nearby places request failed.", error instanceof Error ? error.message : "Unknown error");
+  }
 
   try {
     const nominatimPlaces = await fetchFromNominatim(lat, lng, radiusKm, category);
@@ -419,25 +594,53 @@ export function getNearbyOpenStreetMapPlaces(
   const key = `${lat},${lng},${radiusKm},${category}`;
   const entry = cache.get(key);
 
+  const now = Date.now();
   const cacheDuration = entry?.warnings.length ? FAILURE_CACHE_DURATION_MS : CACHE_DURATION_MS;
-  if (entry && Date.now() - entry.cachedAt < cacheDuration) {
+  const age = entry ? now - entry.cachedAt : Infinity;
+  if (entry && age < cacheDuration) {
     return Promise.resolve({ places: entry.places, warnings: entry.warnings });
+  }
+
+  if (entry && age < STALE_CACHE_DURATION_MS) {
+    const pending = inFlight.get(key);
+    if (
+      !pending &&
+      (!entry.lastAttemptAt || now - entry.lastAttemptAt >= FAILURE_CACHE_DURATION_MS)
+    ) {
+      void refreshPlaces(key, lat, lng, radiusKm, category, entry);
+    }
+    return Promise.resolve({
+      places: entry.places,
+      warnings: ["Showing recently cached places while refreshing live map data."],
+    });
   }
   const pending = inFlight.get(key);
   if (pending) return pending;
+  return refreshPlaces(key, lat, lng, radiusKm, category, entry);
+}
 
+function refreshPlaces(
+  key: string,
+  lat: number,
+  lng: number,
+  radiusKm: number,
+  category: Category,
+  previous?: CacheEntry,
+) {
+  const pending = inFlight.get(key);
+  if (pending) return pending;
   const request = fetchPlaces(lat, lng, radiusKm, category)
     .then((result) => {
       if (
         result.warnings.length > 0 &&
-        entry &&
-        Date.now() - entry.cachedAt < STALE_CACHE_DURATION_MS
+        previous &&
+        Date.now() - previous.cachedAt < STALE_CACHE_DURATION_MS
       ) {
         const staleResult = {
-          places: entry.places,
+          places: previous.places,
           warnings: ["Live map places are temporarily unavailable; showing recently cached spots."],
         };
-        cache.set(key, { ...staleResult, cachedAt: Date.now() });
+        cache.set(key, { ...staleResult, cachedAt: previous.cachedAt, lastAttemptAt: Date.now() });
         return staleResult;
       }
       if (cache.size >= 100) {
@@ -449,8 +652,8 @@ export function getNearbyOpenStreetMapPlaces(
     })
     .catch((error: unknown) => {
       console.error("OpenStreetMap nearby places request failed.", error instanceof Error ? error.message : "Unknown error");
-      const stale = entry && Date.now() - entry.cachedAt < STALE_CACHE_DURATION_MS
-        ? entry.places
+      const stale = previous && Date.now() - previous.cachedAt < STALE_CACHE_DURATION_MS
+        ? previous.places
         : [];
       const failureResult = {
         places: stale,
@@ -460,7 +663,11 @@ export function getNearbyOpenStreetMapPlaces(
             : "Nearby map places are temporarily unavailable; saved community places remain available.",
         ],
       };
-      cache.set(key, { ...failureResult, cachedAt: Date.now() });
+      cache.set(key, {
+        ...failureResult,
+        cachedAt: stale.length > 0 && previous ? previous.cachedAt : Date.now(),
+        lastAttemptAt: Date.now(),
+      });
       return failureResult;
     })
     .finally(() => {
