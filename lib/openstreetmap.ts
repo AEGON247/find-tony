@@ -35,10 +35,8 @@ interface FoursquarePlace {
   fsq_place_id?: string;
   name?: string;
   categories?: Array<{ name?: string; short_name?: string }>;
-  geocodes?: {
-    main?: { latitude?: number; longitude?: number };
-    roof?: { latitude?: number; longitude?: number };
-  };
+  latitude?: number;
+  longitude?: number;
   location?: {
     formatted_address?: string;
     address?: string;
@@ -78,6 +76,16 @@ const OVERPASS_ENDPOINTS = [
 const OVERPASS_TIMEOUT_MS = 1_000;
 const FOURSQUARE_TIMEOUT_MS = 2_500;
 const FOURSQUARE_FAILURE_COOLDOWN_MS = 60 * 1000;
+// Pro (free-tier) fields only. Premium fields such as photos, hours and description
+// return HTTP 429 unless the Foursquare account has paid credits.
+const FOURSQUARE_FREE_FIELDS = "fsq_place_id,name,latitude,longitude,categories,location,website,tel";
+// Keyword queries bias results toward each vibe; foursquareCategory() does the final filtering.
+const FOURSQUARE_QUERIES: Record<Category, string[]> = {
+  FOODIE: ["food"],
+  PARTY: ["bar"],
+  EVENTS: [],
+  CHILL: ["library", "park"],
+};
 const NOMINATIM_TIMEOUT_MS = 3_000;
 const NOMINATIM_MINIMUM_INTERVAL_MS = 1_100;
 const cache = new Map<string, CacheEntry>();
@@ -458,52 +466,78 @@ async function fetchFromFoursquare(
   radiusKm: number,
   category: Category,
 ): Promise<VibePlace[]> {
-  const apiKey = getFoursquareApiKey();
+  // The Places API (places-api.foursquare.com) only accepts Service API keys. Legacy
+  // `fsq3…` API keys from the v3 API are rejected with 401, so the service key wins.
+  const apiKey = [
+    process.env.FOURSQUARE_SERVICE_KEY,
+    process.env.FOURSQUARE_API_KEY,
+    process.env.FOURSQUARE_KEY,
+  ]
+    .map((value) => {
+      const trimmed = value?.trim() ?? "";
+      const unquoted = /^(['"]).*\1$/.test(trimmed) ? trimmed.slice(1, -1).trim() : trimmed;
+      return unquoted.replace(/^bearer\s+/i, "");
+    })
+    .find(Boolean) ?? "";
   if (!apiKey) return [];
   if (foursquareCooldownUntil > Date.now()) return [];
 
-  const params = new URLSearchParams({
-    ll: `${lat},${lng}`,
-    radius: String(Math.round(radiusKm * 1000)),
-    categories: "13000,10000,12125,11180",
-    limit: "35",
-    fields: "fsq_place_id,name,categories,geocodes,location,description,website,hours,tel,photos",
-  });
-  let response: Response;
-  try {
-    response = await fetch(`https://places-api.foursquare.com/places/search?${params}`, {
-      headers: {
-        Accept: "application/json",
-        Authorization: apiKey,
-        "X-Places-Api-Version": "2025-06-17",
-      },
-      signal: AbortSignal.timeout(FOURSQUARE_TIMEOUT_MS),
-      cache: "no-store",
+  const queries = FOURSQUARE_QUERIES[category];
+  if (queries.length === 0) return [];
+  const responses = await Promise.all(queries.map(async (query) => {
+    const params = new URLSearchParams({
+      ll: `${lat},${lng}`,
+      radius: String(Math.round(radiusKm * 1000)),
+      query,
+      limit: "50",
+      fields: FOURSQUARE_FREE_FIELDS,
     });
-  } catch (error: unknown) {
-    foursquareCooldownUntil = Date.now() + 15_000;
-    throw error;
-  }
-  if (!response.ok) {
-    foursquareCooldownUntil = Date.now() + (
-      response.status === 401 || response.status === 403
-        ? 5 * 60 * 1000
-        : response.status === 429 || response.status >= 500
-          ? FOURSQUARE_FAILURE_COOLDOWN_MS
-          : 15_000
-    );
-    if (response.status === 401 || response.status === 403) {
-      console.warn("[Foursquare Auth Warning] Key unauthorized; falling back to Nominatim.");
+    let response: Response;
+    try {
+      response = await fetch(`https://places-api.foursquare.com/places/search?${params}`, {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          "X-Places-Api-Version": "2025-06-17",
+        },
+        signal: AbortSignal.timeout(FOURSQUARE_TIMEOUT_MS),
+        cache: "no-store",
+      });
+    } catch (error: unknown) {
+      foursquareCooldownUntil = Date.now() + 15_000;
+      throw error;
     }
-    throw new Error(`Foursquare Places returned HTTP ${response.status}.`);
-  }
+    if (!response.ok) {
+      foursquareCooldownUntil = Date.now() + (
+        response.status === 401 || response.status === 403
+          ? 5 * 60 * 1000
+          : response.status === 429 || response.status >= 500
+            ? FOURSQUARE_FAILURE_COOLDOWN_MS
+            : 15_000
+      );
+      if (response.status === 401 || response.status === 403) {
+        console.warn("[Foursquare Auth Warning] Key unauthorized; FOURSQUARE_SERVICE_KEY must be a Places API service key. Falling back to live map providers.");
+      }
+      if (response.status === 429) {
+        console.warn("[Foursquare Credits Warning] Request refused (no credits or rate limited), falling back to live map providers.");
+      }
+      throw new Error(`Foursquare Places returned HTTP ${response.status}.`);
+    }
+    return await response.json() as FoursquareResponse;
+  }));
   foursquareCooldownUntil = 0;
 
-  const payload = await response.json() as FoursquareResponse;
-  return (payload.results ?? [])
+  const seen = new Set<string>();
+  return responses
+    .flatMap((payload) => payload.results ?? [])
     .flatMap((place): VibePlace[] => {
-      const latitude = place.geocodes?.main?.latitude ?? place.geocodes?.roof?.latitude;
-      const longitude = place.geocodes?.main?.longitude ?? place.geocodes?.roof?.longitude;
+      const placeId = place.fsq_place_id ?? place.fsq_id;
+      if (placeId) {
+        if (seen.has(placeId)) return [];
+        seen.add(placeId);
+      }
+      const latitude = place.latitude;
+      const longitude = place.longitude;
       const mappedCategory = foursquareCategory(place);
       if (
         !(place.fsq_place_id || place.fsq_id) ||
