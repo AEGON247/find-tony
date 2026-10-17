@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
-import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, ChevronLeft, ChevronRight, Clock3, Flag, Globe, MapPin, Navigation, Pencil, Share2, Ticket, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, BookOpen, Bookmark, CalendarDays, ChevronLeft, ChevronRight, Clock3, Coffee, Flag, Globe, MapPin, Music2, Navigation, Pencil, Share2, Ticket, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { VibePlace } from "@/lib/types";
 
@@ -43,7 +43,6 @@ export default function PlaceDetailPanel({
   place,
   onClose,
   onNavigate,
-  onNearby,
   onTagAdded,
   onTagRemoved,
   onReport,
@@ -54,7 +53,6 @@ export default function PlaceDetailPanel({
   place?: VibePlace;
   onClose: () => void;
   onNavigate: (place: VibePlace) => void;
-  onNearby: (place: VibePlace) => void;
   onTagAdded: (placeId: string, tags: string[], communityTags: string[]) => void;
   onTagRemoved: (placeId: string, tags: string[], communityTags: string[]) => void;
   onReport: (place: VibePlace, reason: "not_a_place" | "closed" | "incorrect") => Promise<void>;
@@ -77,6 +75,17 @@ export default function PlaceDetailPanel({
   const actionCarouselRef = useRef<HTMLDivElement>(null);
   const start = formatEventTime(place?.eventStart);
   const end = formatEventTime(place?.eventEnd);
+  const imageUrls = place?.imageUrls?.length ? place.imageUrls : place?.imageUrl ? [place.imageUrl] : [];
+  const [imageIndex, setImageIndex] = useState(0);
+  const [failedImageUrls, setFailedImageUrls] = useState<string[]>([]);
+  const currentImageUrl = imageUrls[Math.min(imageIndex, Math.max(imageUrls.length - 1, 0))];
+  const CategoryIcon = place?.category === "FOODIE"
+    ? Coffee
+    : place?.category === "PARTY"
+      ? Music2
+      : place?.category === "CHILL"
+        ? BookOpen
+        : CalendarDays;
 
   useEffect(() => {
     setActiveTab("overview");
@@ -85,6 +94,8 @@ export default function PlaceDetailPanel({
     setTagError("");
     setReportPromptOpen(false);
     setReportError("");
+    setImageIndex(0);
+    setFailedImageUrls([]);
   }, [place?.id]);
 
   async function addTag(event: FormEvent<HTMLFormElement>) {
@@ -227,15 +238,35 @@ export default function PlaceDetailPanel({
             {mobileExpanded ? <ArrowDown size={17} /> : <ArrowUp size={17} />}
           </button>
           <div className={`place-detail-banner place-detail-banner--${place.category.toLowerCase()}`}>
-            {place.imageUrl && (
+            {currentImageUrl && !failedImageUrls.includes(currentImageUrl) ? (
               <Image
                 className="place-detail-image"
-                src={place.imageUrl}
+                src={currentImageUrl}
                 alt=""
                 fill
                 unoptimized
                 sizes="(max-width: 560px) 100vw, 380px"
+                onError={() => setFailedImageUrls((urls) => [...new Set([...urls, currentImageUrl])])}
               />
+            ) : (
+              <div className="place-detail-placeholder" aria-hidden="true">
+                <CategoryIcon size={86} strokeWidth={1.2} />
+              </div>
+            )}
+            {imageUrls.length > 1 && (
+              <div className="place-detail-image-controls" aria-label="Venue photos">
+                <button
+                  type="button"
+                  aria-label="Previous venue photo"
+                  onClick={() => setImageIndex((index) => (index - 1 + imageUrls.length) % imageUrls.length)}
+                ><ChevronLeft size={16} /></button>
+                <span>{imageIndex + 1}/{imageUrls.length}</span>
+                <button
+                  type="button"
+                  aria-label="Next venue photo"
+                  onClick={() => setImageIndex((index) => (index + 1) % imageUrls.length)}
+                ><ChevronRight size={16} /></button>
+              </div>
             )}
             <button className="drawer-close" onClick={onClose} aria-label="Close place details"><X /></button>
             <p className="eyebrow">{`// ${place.category}${place.isLiveEvent ? " · LIVE EVENT" : ""}`}</p>
@@ -270,9 +301,6 @@ export default function PlaceDetailPanel({
               <button className={`place-detail-action place-detail-action--save ${savedPlaceIds.includes(place.id) ? "is-saved" : ""}`} onClick={toggleSaved}>
                 <Bookmark size={17} fill={savedPlaceIds.includes(place.id) ? "currentColor" : "none"} />
                 <span>{savedPlaceIds.includes(place.id) ? "SAVED" : "SAVE"}</span>
-              </button>
-              <button className="place-detail-action place-detail-action--nearby" onClick={() => onNearby(place)}>
-                <MapPin size={17} /><span>NEARBY</span>
               </button>
               {place.link && (
                 <a className="place-detail-action place-detail-action--website" href={place.link} target="_blank" rel="noreferrer">

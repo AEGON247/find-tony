@@ -16,6 +16,7 @@ import type { Category, VibePlace, VibesResponse } from "@/lib/types";
 import { useVibe } from "@/context/VibeContext";
 import { distanceInMeters } from "@/lib/geo";
 import { getDeviceHeading, subscribeDeviceHeading } from "@/lib/device-heading";
+import MapLoader from "@/components/MapLoader";
 
 const VIBE_COLORS: Record<Category, string> = {
   FOODIE: "#ec4899",
@@ -62,10 +63,8 @@ function UserLocationMarker({ coordinates }: { coordinates: [number, number] }) 
 
 function MapControls({
   coordinates,
-  onResetSearchCenter,
 }: {
   coordinates: [number, number];
-  onResetSearchCenter: () => void;
 }) {
   const map = useMap();
   return (
@@ -73,7 +72,6 @@ function MapControls({
       <button aria-label="Zoom in" onClick={() => map.zoomIn()}><Plus size={18} /></button>
       <button aria-label="Zoom out" onClick={() => map.zoomOut()}><Minus size={18} /></button>
       <button className="map-controls__locate" aria-label="Center on my location" onClick={() => {
-        onResetSearchCenter();
         map.setView(coordinates, 17, { animate: true });
       }}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Z" /></svg>
@@ -142,8 +140,6 @@ interface MapCanvasProps {
   category: Category;
   selected?: VibePlace;
   navigationTarget?: VibePlace;
-  searchCenter?: [number, number];
-  onResetSearchCenter: () => void;
   onExpandRadar: () => void;
   reportedPlaceIds: string[];
   onSelect: (place: VibePlace) => void;
@@ -153,11 +149,11 @@ interface MapCanvasProps {
 }
 
 function MapWithLocation({
-  category, selected, navigationTarget, searchCenter, onResetSearchCenter, onExpandRadar, reportedPlaceIds, onSelect, onPlacesLoaded, onWarnings, refresh,
+  category, selected, navigationTarget, onExpandRadar, reportedPlaceIds, onSelect, onPlacesLoaded, onWarnings, refresh,
   coordinates,
 }: MapCanvasProps & { coordinates: [number, number] }) {
   const { profile, placesCoordinates } = useVibe();
-  const queryCenter = searchCenter ?? placesCoordinates ?? coordinates;
+  const queryCenter = placesCoordinates ?? coordinates;
   const [result, setResult] = useState<{
     key: string;
     places: VibePlace[];
@@ -275,7 +271,7 @@ function MapWithLocation({
           />
         ))}
         {route && <Polyline positions={route} pathOptions={{ color: "#06b6d4", weight: 4, opacity: 0.95, dashArray: "7 10", className: "navigation-vector" }} />}
-        <MapControls coordinates={coordinates} onResetSearchCenter={onResetSearchCenter} />
+        <MapControls coordinates={coordinates} />
         {!loading && !error && places.length === 0 && (
           <EmptyRadarPrompt
             category={category}
@@ -288,7 +284,7 @@ function MapWithLocation({
       </MapContainer>
       <div className="map-halftone" aria-hidden="true" />
       <div className="map-attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a></div>
-      {loading && <div className="map-status" role="status">SCANNING YOUR RADIUS...</div>}
+      {loading && <div className="map-status"><MapLoader compact label="SCANNING YOUR RADIUS..." /></div>}
       {error && <div className="map-warning" role="alert">{error}</div>}
     </div>
   );

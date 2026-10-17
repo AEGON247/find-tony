@@ -35,6 +35,11 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (request.method !== "GET" || url.origin !== self.location.origin) return;
 
+  if (url.pathname === "/splash.mp4" && request.headers.has("Range")) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
   if (url.pathname === "/api/vibes") {
     event.respondWith((async () => {
       const cache = await caches.open(DATA_CACHE);

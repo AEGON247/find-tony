@@ -4,11 +4,19 @@ import { motion } from "framer-motion";
 import { X } from "lucide-react";
 import { useState } from "react";
 import { useVibe } from "@/context/VibeContext";
+import BadgeShowcase from "@/components/BadgeShowcase";
+import type { BadgeProgress } from "@/config/badges";
 import { CATEGORIES, type Category } from "@/lib/types";
 
 const radiusOptions = [1, 3, 5, 10];
 
-export default function ProfileModal({ onClose }: { onClose: () => void }) {
+export default function ProfileModal({
+  onClose,
+  badges,
+}: {
+  onClose: () => void;
+  badges: BadgeProgress[];
+}) {
   const { profile, updateProfile } = useVibe();
   const [draft, setDraft] = useState(profile);
 
@@ -40,6 +48,7 @@ export default function ProfileModal({ onClose }: { onClose: () => void }) {
             <p className="eyebrow">YOUR RADAR / YOUR RULES</p>
             <h2 id="profile-title">VIBE PROFILE</h2>
             <p className="drawer-copy">Choose a default vibe and search radius. Your profile stays on this device.</p>
+            <BadgeShowcase badges={badges.filter((badge) => badge.unlocked)} />
             <form onSubmit={save} className="profile-form">
               <label htmlFor="alias">YOUR HANDLE</label>
               <input id="alias" maxLength={32} value={draft.alias} onChange={(event) => setDraft({ ...draft, alias: event.target.value })} placeholder="@sydney_hacker" />

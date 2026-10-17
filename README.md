@@ -15,6 +15,8 @@ Open [http://localhost:3000](http://localhost:3000). Grant location permission t
 
 The public Luma Sydney discovery feed and OpenStreetMap Overpass/Nominatim place data require no API keys. `EVENTBRITE_API_KEY` optionally enables a second live event provider; Luma remains the primary event source, and event listings are filtered to upcoming events with usable Sydney coordinates and the selected radius. `FOURSQUARE_SERVICE_KEY` (a Foursquare Places API service key, sent as a Bearer token; `FOURSQUARE_API_KEY` / `FOURSQUARE_KEY` are read as fallbacks, but legacy `fsq3…` v3 keys are rejected) optionally enables Foursquare Places using free-tier fields only (no photos, hours, or descriptions without paid credits) after Overpass and before Nominatim for venue categories. Provider keys are read only on the server and must never use a `NEXT_PUBLIC_` variable. Nearby map places use a 30-minute success cache, race public Overpass endpoints with a 1.5-second abort budget, and fall back to Foursquare and then Nominatim when those endpoints fail. Expired cached results are served while live data refreshes in the background. The app does not bundle static venue coordinates or seeded Sydney places. The map uses OpenStreetMap raster tiles with a CSS grayscale/dark treatment; no map key is required.
 
+Foursquare photos are fetched separately when a venue is opened; the category artwork is used when no images are returned or photo access is unavailable.
+
 For a local production run, optionally copy `.env.example` to `.env`, then build and start:
 
 ```sh
@@ -27,17 +29,18 @@ npm start
 - `GET /api/vibes?category=EVENTS&lat={lat}&lng={lng}&radius=3` combines upcoming Luma events, optional Eventbrite results, and community event pins. Live event titles are used to infer starting event-type tags; available public listing descriptions, times, registration links, and images are shown where supplied.
 - `GET /api/vibes?category=FOODIE&lat={lat}&lng={lng}&radius=3` returns nearby live map places and saved community places. Venue categories use OpenStreetMap Overpass, optional Foursquare, and Nominatim fallback. Provider failures are surfaced as warnings while saved community places remain available.
 - `POST /api/alerts` persists a community pin in `DATA_DIR/alerts.json`; spots submitted as EVENTS can include an event type.
+- `GET /api/places/{placeId}/photos` returns up to three Foursquare photo URLs when the configured key permits access.
 - `POST /api/place-tags` adds a shared custom tag for a place; `DELETE /api/place-tags` removes a community tag. Both changes persist in `DATA_DIR/place-tags.json`.
 - `POST /api/reports` saves a place-removal/accuracy report in `DATA_DIR/reports.json` for team review and locally hides the reported place on that browser.
 - `GET /healthz` returns HTTP 200 for deployment health checks.
 
 Community spots, community event tags, custom place tags, and submitted report records are shared through the server's persistent data directory. They survive restarts only when that directory is mounted persistently. This JSON-file persistence is intended for a single app instance; separate replicas with independent filesystems will not share updates, and concurrent writes across replicas are not coordinated. Place information reflects available public map tags and may be incomplete or out of date; verify venue hours and access with the venue. Unavailable descriptions, event details, prizes, and offers are not invented.
 
-Place details open inside the app. The panel includes an available photo, factual address/type/accessibility details, mapped opening hours, event times, directions drawn on the map, local save, nearby search, and native sharing when the browser supports it. Reviews and ratings are shown only when supplied by a verified source; this app does not manufacture ratings or review text. Sending to another device requires an account or device-pairing service and is not offered.
+Place details open inside the app. The panel includes an available photo or category artwork, factual address/type/accessibility details, mapped opening hours, event times, directions drawn on the map, local save, community tags, and native sharing when the browser supports it. Reviews and ratings are shown only when supplied by a verified source; this app does not manufacture ratings or review text. Sending to another device requires an account or device-pairing service and is not offered.
 
 ## User profile and location
 
-The profile drawer lets users set an alias, default vibe, and radius. The default radius is 3 km. Device location is required to search nearby and is sent to the Find Tony backend, which uses it to request nearby map data from public OpenStreetMap services. Device location is not stored as location history. Nearby places can be checked into within 50 m, contributing to locally stored streaks and badges.
+The profile drawer lets users set an alias, default vibe, and radius, and showcases earned side-quest badges. The default radius is 3 km. Device location is required to search nearby and is sent to the Find Tony backend, which uses it to request nearby map data from public OpenStreetMap services. Device location is not stored as location history. Nearby places can be checked into within 50 m, contributing to locally stored streaks and permanently saved badge unlocks in that browser's localStorage.
 
 ## PWA
 
