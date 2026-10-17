@@ -1,0 +1,41 @@
+x-zenith:
+  catalog:
+    name: Vibe Radar Sydney
+    description: A gamified, mobile-first map for Sydney students to discover local food, events, nightlife, and study spots.
+    authors:
+      - Sachin Mehta
+    tags:
+      - sydney
+      - student-life
+      - local-discovery
+      - nextjs
+      - leaflet
+    source: https://github.com/AEGON247/find-tony
+    license: MIT
+    detail: >-
+      Vibe Radar Sydney helps students discover nearby places and events on an interactive map.
+      It uses OpenStreetMap data, with optional Foursquare venue search, Luma event listings,
+      and optional Eventbrite listings. Users can add community pins and tags, report inaccurate
+      places, check in nearby, and earn progress-tracked badges saved on their device. Built with
+      Next.js 16 and React Leaflet, it includes walking directions and a Docker deployment.
+    alternatives: []
+  expose:
+    - service: web
+      port: 3000
+      web: true
+  storage:
+    app-data:
+      volume: find-tony-data
+      label: Find Tony community data
+      description: Persistent community pins, tags, and place reports.
+
+services:
+  web:
+    build: .
+    environment:
+      DATA_DIR: /app/data
+    volumes:
+      - find-tony-data:/app/data
+
+volumes:
+  find-tony-data:

@@ -6,6 +6,7 @@ import { Navigation } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import AlertModal from "@/components/AlertModal";
 import BadgeAwardOverlay from "@/components/BadgeAwardOverlay";
+import BadgeProgressDrawer from "@/components/BadgeProgressDrawer";
 import MapLoader from "@/components/MapLoader";
 import PlaceDetailPanel from "@/components/PlaceDetailPanel";
 import ProfileModal from "@/components/ProfileModal";
@@ -108,6 +109,7 @@ function FindTonyApp() {
   const [userStats, setUserStats] = useState<UserStats>(EMPTY_USER_STATS);
   const [userStatsLoaded, setUserStatsLoaded] = useState(false);
   const [badgeNotifications, setBadgeNotifications] = useState<BadgeDefinition[]>([]);
+  const [badgeProgressOpen, setBadgeProgressOpen] = useState(false);
   const sharedPlaceId = useRef<string | undefined>(undefined);
 
   useEffect(() => {
@@ -387,12 +389,18 @@ function FindTonyApp() {
           refresh={refresh}
         />
         {coordinates && <div className="map-radius-tag">WITHIN {profile.radiusKm} KM</div>}
-        {coordinates && <div className="explorer-stats" aria-live="polite">
+        {coordinates && <button
+          className="explorer-stats"
+          type="button"
+          aria-label={`Open badge quests. ${streak} day streak, ${earnedBadges.length} badges earned, ${uniqueWeeklyPlaces} weekly places.`}
+          aria-haspopup="dialog"
+          onClick={() => setBadgeProgressOpen(true)}
+        >
           <strong>{streak} DAY STREAK</strong>
           <span>{earnedBadges.length} BADGES</span>
           <span>{uniqueWeeklyPlaces}/3 WEEKLY SPOTS</span>
           {earnedBadges.length > 0 && <span className="explorer-badges">{earnedBadges.map((badge) => badge.definition.title.toUpperCase()).join(" · ")}</span>}
-        </div>}
+        </button>}
         {coordinates && <button className="button button-alert" onClick={() => setAlertOpen(true)}>
           <span aria-hidden="true">+</span> DROP A SPOT
         </button>}
@@ -438,6 +446,11 @@ function FindTonyApp() {
           />
         </AnimatePresence>
       )}
+      <BadgeProgressDrawer
+        open={badgeProgressOpen}
+        badges={badgeProgress}
+        onClose={() => setBadgeProgressOpen(false)}
+      />
       <AlertModal open={alertOpen} category={category} onClose={() => setAlertOpen(false)} onCreated={createdAlert} />
       <AnimatePresence>
         {!started && <SplashScreen onStart={begin} />}

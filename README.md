@@ -40,7 +40,7 @@ Place details open inside the app. The panel includes an available photo or cate
 
 ## User profile and location
 
-The profile drawer lets users set an alias, default vibe, and radius, and showcases earned side-quest badges. The default radius is 3 km. Device location is required to search nearby and is sent to the Find Tony backend, which uses it to request nearby map data from public OpenStreetMap services. Device location is not stored as location history. Nearby places can be checked into within 50 m, contributing to locally stored streaks and permanently saved badge unlocks in that browser's localStorage.
+The profile drawer lets users set an alias, default vibe, and radius, and showcases earned side-quest badges. Tap the streak card on the map to open the full badge quest guide with each badge's criteria and progress. The default radius is 3 km. Device location is required to search nearby and is sent to the Find Tony backend, which uses it to request nearby map data from public OpenStreetMap services. Device location is not stored as location history. Nearby places can be checked into within 50 m, contributing to locally stored streaks and permanently saved badge unlocks in that browser's localStorage.
 
 ## PWA
 

@@ -24,6 +24,7 @@ export interface BadgeProgress {
   definition: BadgeDefinition;
   progress: number;
   unlocked: boolean;
+  progressLabel: string;
 }
 
 export const BADGE_DEFINITIONS: BadgeDefinition[] = [
@@ -81,7 +82,7 @@ export function getBadgeProgress(
       if (checkIn.category === "EVENTS" && /\bhackathon\b/i.test(evidence)) {
         qualifying.add(checkIn.placeId);
       }
-      if (checkIn.category === "CHILL" && /\b(library|unsw main library)\b/i.test(evidence)) {
+      if (checkIn.category === "CHILL" && /\bunsw main library\b/i.test(evidence)) {
         libraryCheckIn = true;
       }
     }
@@ -95,15 +96,63 @@ export function getBadgeProgress(
   return Math.min(badge.questTarget, visitedLateNightLounge ? badge.questTarget : droppedSpotCount);
 }
 
+function getBadgeProgressLabel(
+  badge: BadgeDefinition,
+  checkIns: BadgeCheckIn[],
+  droppedSpotCount: number,
+  progress: number,
+): string {
+  if (badge.id === "party-animal") {
+    return `${progress}/${badge.questTarget} Randwick/Kingsford party check-ins`;
+  }
+
+  if (badge.id === "terminal-velocity") {
+    const hasLibraryCheckIn = checkIns.some((checkIn) =>
+      checkIn.category === "CHILL" &&
+      /\bunsw main library\b/i.test(
+        `${checkIn.title ?? ""} ${checkIn.placeType ?? ""} ${(checkIn.tags ?? []).join(" ")}`,
+      ),
+    );
+    if (hasLibraryCheckIn) return "UNSW Main Library check-in complete";
+
+    const hackathonCheckIns = new Set(checkIns
+      .filter((checkIn) =>
+        checkIn.category === "EVENTS" &&
+        /\bhackathon\b/i.test(
+          `${checkIn.title ?? ""} ${checkIn.placeType ?? ""} ${(checkIn.tags ?? []).join(" ")}`,
+        ),
+      )
+      .map((checkIn) => checkIn.placeId));
+    return `${Math.min(badge.questTarget, hackathonCheckIns.size)}/${badge.questTarget} hackathon check-ins`;
+  }
+
+  if (badge.id === "rizz-god") {
+    const hasLoungeCheckIn = checkIns.some((checkIn) =>
+      checkIn.category === "PARTY" &&
+      /\blounge\b/i.test(
+        `${checkIn.title ?? ""} ${checkIn.placeType ?? ""} ${(checkIn.tags ?? []).join(" ")}`,
+      ),
+    );
+    if (hasLoungeCheckIn) return "Late-night lounge check-in complete";
+    return `${Math.min(badge.questTarget, droppedSpotCount)}/${badge.questTarget} community spots dropped`;
+  }
+
+  return `${progress}/${badge.questTarget} eligible place check-ins`;
+}
+
 export function getBadgeSnapshot(
   checkIns: BadgeCheckIn[],
   droppedSpotCount: number,
   unlockedBadgeIds: string[],
 ): BadgeProgress[] {
   const unlocked = new Set(unlockedBadgeIds);
-  return BADGE_DEFINITIONS.map((definition) => ({
-    definition,
-    progress: getBadgeProgress(definition, checkIns, droppedSpotCount),
-    unlocked: unlocked.has(definition.id),
-  }));
+  return BADGE_DEFINITIONS.map((definition) => {
+    const progress = getBadgeProgress(definition, checkIns, droppedSpotCount);
+    return {
+      definition,
+      progress,
+      unlocked: unlocked.has(definition.id),
+      progressLabel: getBadgeProgressLabel(definition, checkIns, droppedSpotCount, progress),
+    };
+  });
 }

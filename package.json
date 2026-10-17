@@ -25,13 +25,13 @@
     "react-leaflet": "^5.0.0"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^8.71.2",
-    "@typescript-eslint/parser": "^8.71.2",
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/leaflet": "^1.9.16",
     "@types/node": "^20.17.10",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
-    "@tailwindcss/postcss": "^4.3.3",
+    "@typescript-eslint/eslint-plugin": "^8.71.2",
+    "@typescript-eslint/parser": "^8.71.2",
     "eslint": "^9.39.2",
     "eslint-plugin-react-hooks": "^7.1.1",
     "postcss": "^8.4.49",

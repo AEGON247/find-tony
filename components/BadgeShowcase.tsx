@@ -37,7 +37,12 @@ export default function BadgeShowcase({ badges }: { badges: BadgeProgress[] }) {
               className="badge-card"
               type="button"
               key={definition.id}
-              onClick={() => setSelected({ definition, progress, unlocked: true })}
+              onClick={() => setSelected({
+                definition,
+                progress,
+                unlocked: true,
+                progressLabel: `${progress}/${definition.questTarget} progress`,
+              })}
               aria-label={`${definition.title}, earned. View quest details.`}
             >
               <span className="badge-card__icon">
