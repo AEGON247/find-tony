@@ -244,8 +244,8 @@ function MapWithLocation({
         scrollWheelZoom
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
           maxZoom={19}
         />
         <MapFocus coordinates={coordinates} selected={selected} navigating={Boolean(navigationTarget)} />
@@ -287,7 +287,7 @@ function MapWithLocation({
         )}
       </MapContainer>
       <div className="map-halftone" aria-hidden="true" />
-      <div className="map-attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a> · © <a href="https://carto.com/attributions" target="_blank" rel="noreferrer">CARTO</a></div>
+      <div className="map-attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a></div>
       {loading && <div className="map-status" role="status">SCANNING YOUR RADIUS...</div>}
       {error && <div className="map-warning" role="alert">{error}</div>}
     </div>

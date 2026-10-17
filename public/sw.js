@@ -1,6 +1,7 @@
 const CACHE_PREFIX = "find-tony-";
-const APP_CACHE = `${CACHE_PREFIX}app-v5`;
-const DATA_CACHE = `${CACHE_PREFIX}data-v5`;
+const APP_CACHE = `${CACHE_PREFIX}app-v6`;
+const DATA_CACHE = `${CACHE_PREFIX}data-v6`;
+const APP_SHELL_CACHE_KEY = new Request(`${self.location.origin}/__find-tony-app-shell__`);
 const CATEGORIES = ["FOODIE", "PARTY", "EVENTS", "CHILL"];
 
 self.addEventListener("install", (event) => {
@@ -68,7 +69,7 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/api/")) return;
   event.respondWith((async () => {
     const cache = await caches.open(APP_CACHE);
-    const cacheKey = request.mode === "navigate" ? "/index.html" : request;
+    const cacheKey = request.mode === "navigate" ? APP_SHELL_CACHE_KEY : request;
     try {
       const response = await fetch(request);
       if (url.pathname.startsWith("/_next/static/") && response.ok) {

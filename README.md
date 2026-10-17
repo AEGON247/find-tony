@@ -13,7 +13,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). Grant location permission to load the map, search nearby places, and enable check-ins. There are no bundled sample locations or fixed-campus coordinate fallbacks. The map starts at zoom 16.5 around the device location. Profile preferences and check-in progress are stored only in localStorage.
 
-The public Luma Sydney discovery feed and OpenStreetMap Overpass/Nominatim place data require no API keys. `EVENTBRITE_API_KEY` optionally enables a second live event provider; Luma remains the primary event source, and event listings are filtered to upcoming events with usable Sydney coordinates and the selected radius. `FOURSQUARE_API_KEY` (or `FOURSQUARE_SERVICE_KEY` / the legacy `FOURSQUARE_KEY`) optionally enables Foursquare Places after Overpass and before Nominatim for venue categories. Provider keys are read only on the server and must never use a `NEXT_PUBLIC_` variable. Nearby map places use a 30-minute success cache, race public Overpass endpoints with a 1.5-second abort budget, and fall back to Foursquare and then Nominatim when those endpoints fail. Expired cached results are served while live data refreshes in the background. The app does not bundle static venue coordinates or seeded Sydney places. The map uses OpenStreetMap data with native dark Carto tiles; no map key is required.
+The public Luma Sydney discovery feed and OpenStreetMap Overpass/Nominatim place data require no API keys. `EVENTBRITE_API_KEY` optionally enables a second live event provider; Luma remains the primary event source, and event listings are filtered to upcoming events with usable Sydney coordinates and the selected radius. `FOURSQUARE_API_KEY` (or `FOURSQUARE_SERVICE_KEY` / the legacy `FOURSQUARE_KEY`) optionally enables Foursquare Places after Overpass and before Nominatim for venue categories. Provider keys are read only on the server and must never use a `NEXT_PUBLIC_` variable. Nearby map places use a 30-minute success cache, race public Overpass endpoints with a 1.5-second abort budget, and fall back to Foursquare and then Nominatim when those endpoints fail. Expired cached results are served while live data refreshes in the background. The app does not bundle static venue coordinates or seeded Sydney places. The map uses OpenStreetMap raster tiles with a CSS grayscale/dark treatment; no map key is required.
 
 For a local production run, optionally copy `.env.example` to `.env`, then build and start:
 
@@ -41,7 +41,7 @@ The profile drawer lets users set an alias, default vibe, and radius. The defaul
 
 ## PWA
 
-Serve the app over HTTPS (or use `localhost` for local development), then use the browser's **Install app** prompt / **Add to Home Screen** action. The service worker caches app navigation and previously fetched place responses; map tiles and alert publishing need an internet connection. OpenStreetMap and CARTO attribution is shown on the map.
+Serve the app over HTTPS (or use `localhost` for local development), then use the browser's **Install app** prompt / **Add to Home Screen** action. The service worker caches app navigation and previously fetched place responses; map tiles and alert publishing need an internet connection. OpenStreetMap tile use is subject to its [tile usage policy](https://operations.osmfoundation.org/policies/tiles/).
 
 ## Docker and Zenith Hosting
 

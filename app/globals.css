@@ -42,6 +42,7 @@ a { color: inherit; }
 .map-location-required p { max-width: 380px; margin: 0; color: #d2d0d7; font-size: 12px; line-height: 1.5; }
 .map-loading { display: grid; place-items: center; color: var(--yellow); font: 400 20px var(--font-display), Impact, sans-serif; }
 .leaflet-container { background: #171a1f; font-family: var(--font-body), Arial, sans-serif; }
+.leaflet-tile { filter: grayscale(1) invert(1) brightness(.72) contrast(1.1); }
 .map-avatar__arrow { transform: rotate(var(--map-avatar-heading, 0deg)); transform-origin: 24px 27px; transition: transform .12s linear; }
 .map-controls { position: absolute; z-index: 500; right: 16px; bottom: 18px; display: flex; flex-direction: column; gap: 5px; }
 .map-controls button { display: grid; width: 38px; height: 38px; place-items: center; color: var(--ink); background: var(--paper); border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); cursor: pointer; }
