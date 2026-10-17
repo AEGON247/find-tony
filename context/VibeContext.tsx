@@ -102,6 +102,21 @@ export function VibeProvider({ children }: Readonly<{ children: React.ReactNode 
 
   const requestLocation = useCallback(() => {
     if (watchId.current !== undefined) navigator.geolocation?.clearWatch(watchId.current);
+    // Development-only testing aid: /?mockLocation=-33.8981,151.1795 pretends to be at that Sydney spot,
+    // so two browser windows can act as two nearby people. Ignored in production builds.
+    const mockLocation = process.env.NODE_ENV === "development"
+      ? new URLSearchParams(window.location.search).get("mockLocation")
+      : null;
+    if (mockLocation) {
+      const [lat, lng] = mockLocation.split(",").map(Number);
+      if (isSydneyCoordinate(lat, lng)) {
+        lastKnownCoordinates.current = [lat, lng];
+        setPlacesCoordinates([lat, lng]);
+        setDeviceCoordinates([lat, lng]);
+        setLocationStatus("device");
+        return;
+      }
+    }
     if (!navigator.geolocation) {
       setDeviceCoordinates(undefined);
       setLocationStatus("error");

@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
-import { ArrowDown, ArrowUp, ArrowUpRight, BookOpen, Bookmark, CalendarDays, ChevronLeft, ChevronRight, Clock3, Coffee, Flag, Globe, MapPin, Music2, Navigation, Pencil, Share2, Ticket, UserPlus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, BookOpen, Bookmark, CalendarDays, ChevronLeft, ChevronRight, Clock3, Coffee, Flag, Globe, MapPin, Music2, Navigation, Pencil, Radio, Share2, Ticket, UserPlus, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { VibePlace } from "@/lib/types";
 
@@ -44,6 +44,7 @@ export default function PlaceDetailPanel({
   onClose,
   onNavigate,
   onInvite,
+  onOpenInvite,
   onTagAdded,
   onTagRemoved,
   onReport,
@@ -55,6 +56,7 @@ export default function PlaceDetailPanel({
   onClose: () => void;
   onNavigate: (place: VibePlace) => void;
   onInvite: (place: VibePlace) => void;
+  onOpenInvite: (place: VibePlace) => void;
   onTagAdded: (placeId: string, tags: string[], communityTags: string[]) => void;
   onTagRemoved: (placeId: string, tags: string[], communityTags: string[]) => void;
   onReport: (place: VibePlace, reason: "not_a_place" | "closed" | "incorrect") => Promise<void>;
@@ -291,6 +293,9 @@ export default function PlaceDetailPanel({
             <div className="place-detail-actions" ref={actionCarouselRef} aria-label="Place actions">
               <button className="place-detail-action place-detail-action--invite" onClick={() => onInvite(place)}>
                 <UserPlus size={17} /><span>RSVP / INVITE</span>
+              </button>
+              <button className="place-detail-action place-detail-action--open-invite" onClick={() => onOpenInvite(place)}>
+                <Radio size={17} /><span>OPEN INVITE</span>
               </button>
               <button className="place-detail-action place-detail-action--route" onClick={() => onNavigate(place)}>
                 <Navigation size={17} /><span>IN-APP ROUTE</span>
