@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
-import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, ChevronLeft, ChevronRight, Clock3, Flag, Globe, MapPin, Navigation, Pencil, Share2, Ticket, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, Bookmark, ChevronLeft, ChevronRight, Clock3, Flag, Globe, MapPin, Navigation, Pencil, Share2, Ticket, UserPlus, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { VibePlace } from "@/lib/types";
 
@@ -44,6 +44,7 @@ export default function PlaceDetailPanel({
   onClose,
   onNavigate,
   onNearby,
+  onInvite,
   onTagAdded,
   onTagRemoved,
   onReport,
@@ -55,6 +56,7 @@ export default function PlaceDetailPanel({
   onClose: () => void;
   onNavigate: (place: VibePlace) => void;
   onNearby: (place: VibePlace) => void;
+  onInvite: (place: VibePlace) => void;
   onTagAdded: (placeId: string, tags: string[], communityTags: string[]) => void;
   onTagRemoved: (placeId: string, tags: string[], communityTags: string[]) => void;
   onReport: (place: VibePlace, reason: "not_a_place" | "closed" | "incorrect") => Promise<void>;
@@ -256,6 +258,9 @@ export default function PlaceDetailPanel({
               </div>
             </div>
             <div className="place-detail-actions" ref={actionCarouselRef} aria-label="Place actions">
+              <button className="place-detail-action place-detail-action--invite" onClick={() => onInvite(place)}>
+                <UserPlus size={17} /><span>RSVP / INVITE</span>
+              </button>
               <button className="place-detail-action place-detail-action--route" onClick={() => onNavigate(place)}>
                 <Navigation size={17} /><span>IN-APP ROUTE</span>
               </button>
