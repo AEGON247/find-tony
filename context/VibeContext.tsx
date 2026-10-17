@@ -30,6 +30,7 @@ interface VibeContextValue {
 const VibeContext = createContext<VibeContextValue | null>(null);
 
 function subscribeProfile(callback: () => void) {
+  if (typeof window === "undefined") return () => {};
   window.addEventListener("storage", callback);
   window.addEventListener(PROFILE_EVENT, callback);
   return () => {
@@ -39,7 +40,13 @@ function subscribeProfile(callback: () => void) {
 }
 
 function getProfileSnapshot() {
-  return localStorage.getItem(PROFILE_KEY);
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(PROFILE_KEY);
+  } catch (error) {
+    console.error("Could not read the saved profile.", error);
+    return null;
+  }
 }
 
 function parseProfile(serialized: string | null): UserProfile {

@@ -95,18 +95,18 @@ let nextNominatimRequestAt = 0;
 let nominatimQueue: Promise<void> = Promise.resolve();
 let foursquareCooldownUntil = 0;
 
-function getFoursquareApiKey() {
+export function getFoursquareApiKey() {
   return [
-    process.env.FOURSQUARE_API_KEY,
     process.env.FOURSQUARE_SERVICE_KEY,
+    process.env.FOURSQUARE_API_KEY,
     process.env.FOURSQUARE_KEY,
   ]
     .map((value) => {
       const trimmed = value?.trim() ?? "";
       const unquoted = trimmed.replace(/^(['"])(.*)\1$/s, "$2").trim();
-      return unquoted.replace(/^["']+|["']+$/g, "").trim();
+      return unquoted.replace(/^["']+|["']+$/g, "").replace(/^bearer\s+/i, "").trim();
     })
-    .find((value) => value.startsWith("fsq3")) ?? "";
+    .find(Boolean) ?? "";
 }
 
 async function waitForNominatimSlot() {
@@ -468,17 +468,7 @@ async function fetchFromFoursquare(
 ): Promise<VibePlace[]> {
   // The Places API (places-api.foursquare.com) only accepts Service API keys. Legacy
   // `fsq3…` API keys from the v3 API are rejected with 401, so the service key wins.
-  const apiKey = [
-    process.env.FOURSQUARE_SERVICE_KEY,
-    process.env.FOURSQUARE_API_KEY,
-    process.env.FOURSQUARE_KEY,
-  ]
-    .map((value) => {
-      const trimmed = value?.trim() ?? "";
-      const unquoted = /^(['"]).*\1$/.test(trimmed) ? trimmed.slice(1, -1).trim() : trimmed;
-      return unquoted.replace(/^bearer\s+/i, "");
-    })
-    .find(Boolean) ?? "";
+  const apiKey = getFoursquareApiKey();
   if (!apiKey) return [];
   if (foursquareCooldownUntil > Date.now()) return [];
 

@@ -1,0 +1,13 @@
+{
+  "productName": "Vibe Radar Sydney",
+  "category": "Developer tools",
+  "description": "Gamified, mobile-first radar map for Sydney students to discover nearby food, events, nightlife, and study spots.",
+  "detail": "Vibe Radar Sydney helps students explore nearby places and events on an interactive map. It uses OpenStreetMap data, with optional Foursquare venue search, Luma event listings, and optional Eventbrite listings. Users can add community pins and tags, report inaccurate places, check in nearby, and earn progress-tracked badges saved on their device. Built with Next.js 16 and React Leaflet, it includes walking directions and Docker deployment.",
+  "maintainerName": "Sachin Mehta",
+  "contactEmail": "sachin@lmxlabs.com",
+  "license": "MIT",
+  "website": "https://github.com/AEGON247/find-tony",
+  "supportUrl": "https://github.com/AEGON247/find-tony/issues",
+  "alternatives": [],
+  "partnershipNotes": ""
+}

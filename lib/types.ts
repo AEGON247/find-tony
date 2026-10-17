@@ -29,6 +29,7 @@ export interface VibePlace {
   placeType?: string;
   accessibility?: string;
   imageUrl?: string;
+  imageUrls?: string[];
   rating?: number;
   source: string;
   link?: string;

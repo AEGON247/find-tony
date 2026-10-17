@@ -23,7 +23,16 @@ export default function VibeHeader({ category, onCategoryChange, onOpenProfile, 
   return (
     <header className="app-header">
       <Link href="/" className="wordmark" aria-label="Find Tony home">
-        <Image className="wordmark-logo" src="/icons/find-tony-logo-png.png" alt="" width={42} height={42} priority />
+        <Image
+          key="/icons/find-tony-logo-png.png?v=20261017"
+          className="wordmark-logo"
+          src="/icons/find-tony-logo-png.png?v=20261017"
+          alt=""
+          width={42}
+          height={42}
+          priority
+          unoptimized
+        />
         <span>FIND TONY</span>
       </Link>
       <div className="header-location"><MapPin size={15} /><span>{locationLabel}</span></div>

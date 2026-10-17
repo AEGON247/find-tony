@@ -1,71 +1,157 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
-import { Zap } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
-const signals = [
-  { label: "FOODIE", color: "#ec4899", icon: "F" },
-  { label: "PARTY", color: "#8b5cf6", icon: "P" },
-  { label: "EVENTS", color: "#06b6d4", icon: "E" },
-  { label: "CHILL", color: "#b7f36b", icon: "C" },
-];
-const messages = ["TUNING IN...", "LOCATING SYDNEY SIGNALS...", "RADAR READY"];
+interface SplashScreenProps {
+  onStart: () => void;
+}
 
-export default function SplashScreen({ onStart }: { onStart: () => void }) {
-  const [signalIndex, setSignalIndex] = useState(0);
-  const [messageIndex, setMessageIndex] = useState(0);
+export default function SplashScreen({ onStart }: SplashScreenProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const sliderRef = useRef<HTMLButtonElement>(null);
+  const pointerStart = useRef<{ id: number; x: number; offset: number; type: string } | undefined>(undefined);
+  const revealTimer = useRef<number | undefined>(undefined);
+  const launchTimer = useRef<number | undefined>(undefined);
+  const [videoFinished, setVideoFinished] = useState(false);
+  const [slideOffset, setSlideOffset] = useState(0);
+  const [isCompleting, setIsCompleting] = useState(false);
 
   useEffect(() => {
-    const signalTimer = window.setInterval(() => setSignalIndex((value) => (value + 1) % signals.length), 720);
-    const messageTimer = window.setInterval(() => setMessageIndex((value) => Math.min(value + 1, messages.length - 1)), 1500);
+    const video = videoRef.current;
+    if (!video) return;
+
+    const revealLaunch = () => {
+      if (revealTimer.current !== undefined) window.clearTimeout(revealTimer.current);
+      revealTimer.current = window.setTimeout(() => setVideoFinished(true), 1000);
+    };
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      video.pause();
+      revealLaunch();
+    } else {
+      void video.play().catch(revealLaunch);
+    }
+
     return () => {
-      window.clearInterval(signalTimer);
-      window.clearInterval(messageTimer);
+      if (revealTimer.current !== undefined) window.clearTimeout(revealTimer.current);
+      if (launchTimer.current !== undefined) window.clearTimeout(launchTimer.current);
     };
   }, []);
 
-  const signal = signals[signalIndex];
+  function finishVideo() {
+    if (revealTimer.current !== undefined) window.clearTimeout(revealTimer.current);
+    revealTimer.current = window.setTimeout(() => setVideoFinished(true), 1000);
+  }
+
+  function completeLaunch() {
+    if (launchTimer.current !== undefined) window.clearTimeout(launchTimer.current);
+    const maximum = (sliderRef.current?.clientWidth ?? 0) - 58;
+    setIsCompleting(true);
+    setSlideOffset(Math.max(0, maximum));
+    launchTimer.current = window.setTimeout(onStart, 240);
+  }
+
+  function resetSlider() {
+    pointerStart.current = undefined;
+    setIsCompleting(false);
+    setSlideOffset(0);
+  }
+
+  function updateSlide(clientX: number) {
+    const track = sliderRef.current;
+    const drag = pointerStart.current;
+    if (!track || !drag) return 0;
+    const maximum = track.clientWidth - 58;
+    const offset = Math.min(maximum, Math.max(0, drag.offset + clientX - drag.x));
+    setSlideOffset(offset);
+    return maximum > 0 ? offset / maximum : 0;
+  }
+
+  function handlePointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (!videoFinished) return;
+    if (launchTimer.current !== undefined) window.clearTimeout(launchTimer.current);
+    setIsCompleting(false);
+    event.preventDefault();
+    sliderRef.current?.setPointerCapture(event.pointerId);
+    pointerStart.current = {
+      id: event.pointerId,
+      x: event.clientX,
+      offset: slideOffset,
+      type: event.pointerType,
+    };
+  }
+
+  function handlePointerMove(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (pointerStart.current?.id !== event.pointerId) return;
+    updateSlide(event.clientX);
+  }
+
+  function handlePointerUp(event: ReactPointerEvent<HTMLButtonElement>) {
+    const drag = pointerStart.current;
+    if (!drag || drag.id !== event.pointerId) return;
+    const progress = updateSlide(event.clientX);
+    pointerStart.current = undefined;
+
+    if (drag.type !== "touch" || progress >= 0.72) {
+      completeLaunch();
+      return;
+    }
+    setIsCompleting(true);
+    setSlideOffset(0);
+  }
+
   return (
-    <motion.div className="splash-screen" initial={{ opacity: 1 }} exit={{ opacity: 0, scale: 1.04 }} transition={{ duration: 0.45 }}>
-      <div className="splash-dots" />
-      <motion.section className="splash-panel" initial={{ y: 24, scale: 0.96 }} animate={{ y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 140, damping: 16 }}>
-        <p className="eyebrow">SYDNEY / FIELD GUIDE 01</p>
-        <h1 className="splash-title">FIND<br /><span>TONY</span></h1>
-        <p className="splash-copy">Find your people. Find your place.<br />Get out there.</p>
-        <div className="kinetic-row">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={signal.label}
-              className="kinetic-badge"
-              style={{ backgroundColor: signal.color }}
-              initial={{ rotate: -18, scale: 0.55, y: 16 }}
-              animate={{ rotate: 0, scale: 1, y: 0 }}
-              exit={{ rotate: 20, scale: 0.6, y: -14 }}
-              transition={{ type: "spring", stiffness: 260, damping: 14 }}
-            >
-              <span>{signal.icon}</span>
-            </motion.div>
-          </AnimatePresence>
-          <div>
-            <span className="eyebrow">SIGNAL DETECTED</span>
-            <AnimatePresence mode="wait">
-              <motion.strong key={signal.label} className="kinetic-label" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
-                {signal.label}
-              </motion.strong>
-            </AnimatePresence>
-          </div>
-        </div>
-        <AnimatePresence mode="wait">
-          <motion.p key={messageIndex} className="splash-status" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}>
-            <Zap size={13} fill="currentColor" /> {messages[messageIndex]}
-          </motion.p>
-        </AnimatePresence>
-        <button className="button button-primary initialize-button" onClick={onStart}>
-          FIND YOUR SPOT <span aria-hidden="true">→</span>
-        </button>
-        <p className="splash-footnote">A student-built map of the city in motion.</p>
-      </motion.section>
+    <motion.div
+      className="splash-screen"
+      initial={{ opacity: 1 }}
+      exit={{ opacity: 0, scale: 1.03 }}
+      transition={{ duration: 0.4 }}
+    >
+      <div className="splash-video-frame">
+        <video
+          ref={videoRef}
+          className="splash-video"
+          src="/splash.mp4"
+          autoPlay
+          muted
+          playsInline
+          preload="auto"
+          onEnded={finishVideo}
+          onError={finishVideo}
+          aria-label="Find Tony animated splash screen"
+        />
+      </div>
+      {videoFinished && (
+        <motion.button
+          ref={sliderRef}
+          className={`splash-launch${isCompleting ? " is-completing" : ""}`}
+          type="button"
+          aria-label="Slide to find your spot on mobile, or click to continue"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.45, ease: "easeOut" }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={resetSlider}
+          onLostPointerCapture={() => {
+            if (pointerStart.current) resetSlider();
+          }}
+          onClick={(event) => {
+            if (event.detail === 0) completeLaunch();
+          }}
+        >
+          <span className="splash-launch-label">Find your spot !</span>
+          <span
+            className="splash-launch-knob"
+            style={{ transform: `translateX(${slideOffset}px)` }}
+            aria-hidden="true"
+          >
+            <ArrowRight size={28} strokeWidth={1.8} />
+          </span>
+        </motion.button>
+      )}
     </motion.div>
   );
 }
