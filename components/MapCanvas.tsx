@@ -16,6 +16,8 @@ import type { Category, VibePlace, VibesResponse } from "@/lib/types";
 import { useVibe } from "@/context/VibeContext";
 import { distanceInMeters } from "@/lib/geo";
 import { getDeviceHeading, subscribeDeviceHeading } from "@/lib/device-heading";
+import { INVITE_VIBES, type InviteVibeId } from "@/lib/invite-vibes";
+import type { OpenInviteView } from "@/lib/social-types";
 import MapLoader from "@/components/MapLoader";
 
 const VIBE_COLORS: Record<Category, string> = {
@@ -38,6 +40,87 @@ function pinIcon(category: Category, isSelected: boolean, isPoi: boolean, isNear
     iconSize: isPoi ? [36, 42] : [42, 48],
     iconAnchor: isPoi ? [18, 36] : [21, 42],
   });
+}
+
+const OPEN_INVITE_SYMBOL = '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>';
+const DROP_STAGGER_MS = 140;
+const DROP_ANIMATION_MS = 1600;
+
+interface OpenInviteIconOptions {
+  vibe: InviteVibeId;
+  createdAt: string;
+  expiresAt: string;
+  goingCount: number;
+  isMine: boolean;
+  amGoing: boolean;
+  isSelected: boolean;
+  dropping: boolean;
+  dropDelayMs: number;
+}
+
+// Only fixed vibe labels and numbers go into this HTML, never user-written text.
+function openInviteIcon(options: OpenInviteIconOptions) {
+  const vibe = INVITE_VIBES[options.vibe];
+  const lifeSeconds = Math.max(1, (Date.parse(options.expiresAt) - Date.parse(options.createdAt)) / 1000);
+  const elapsedSeconds = Math.max(0, (Date.now() - Date.parse(options.createdAt)) / 1000);
+  const classes = [
+    "open-invite-marker",
+    options.dropping ? "is-dropping" : "",
+    options.isSelected ? "is-selected" : "",
+    options.isMine ? "is-mine" : "",
+    options.amGoing ? "is-going" : "",
+  ].filter(Boolean).join(" ");
+  const count = options.goingCount > 0 ? `<span class="open-invite-pin__count">${options.goingCount}</span>` : "";
+  const label = options.isMine ? "YOUR INVITE" : options.amGoing ? "YOU'RE IN" : vibe.label.toUpperCase();
+  return L.divIcon({
+    className: classes,
+    html: `<span class="open-invite-pin" style="--invite-color:${vibe.color};--invite-life:${lifeSeconds}s;--invite-elapsed:-${elapsedSeconds}s;--drop-delay:${options.dropDelayMs}ms">`
+      + '<span class="open-invite-pin__ping"></span><span class="open-invite-pin__ping open-invite-pin__ping--late"></span>'
+      + '<span class="open-invite-pin__body">'
+      + '<span class="open-invite-pin__bubble">'
+      + '<svg class="open-invite-pin__timer" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21" pathLength="100"/></svg>'
+      + `<svg class="open-invite-pin__icon" viewBox="0 0 24 24" aria-hidden="true">${OPEN_INVITE_SYMBOL}</svg>`
+      + `</span>${count}<span class="open-invite-pin__label">${label}</span>`
+      + "</span></span>",
+    iconSize: [56, 76],
+    iconAnchor: [28, 55],
+  });
+}
+
+function OpenInviteMarker({
+  invite,
+  selected,
+  dropDelayMs,
+  onSelect,
+}: {
+  invite: OpenInviteView;
+  selected: boolean;
+  dropDelayMs: number;
+  onSelect: (invite: OpenInviteView) => void;
+}) {
+  // New pins drop in once (like cars appearing in a ride-share app); later icon
+  // swaps for selection or RSVP counts must not replay the drop.
+  const [dropping, setDropping] = useState(true);
+  const { vibe, createdAt, expiresAt, goingCount, isMine, amGoing } = invite;
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDropping(false), DROP_ANIMATION_MS + dropDelayMs);
+    return () => window.clearTimeout(timer);
+  }, [dropDelayMs]);
+
+  const icon = useMemo(() => openInviteIcon({
+    vibe, createdAt, expiresAt, goingCount, isMine, amGoing, isSelected: selected, dropping, dropDelayMs,
+  }), [amGoing, createdAt, dropDelayMs, dropping, expiresAt, goingCount, isMine, selected, vibe]);
+
+  return (
+    <Marker
+      position={[invite.place.lat, invite.place.lng]}
+      icon={icon}
+      title={`Open invite: ${INVITE_VIBES[vibe].label} at ${invite.place.title}`}
+      zIndexOffset={selected ? 1200 : 800}
+      eventHandlers={{ click: () => onSelect(invite) }}
+    />
+  );
 }
 
 function avatarIcon() {
@@ -122,17 +205,26 @@ function EmptyRadarPrompt({
 function MapFocus({
   coordinates,
   selected,
+  focusPoint,
   navigating,
 }: {
   coordinates: [number, number];
   selected?: VibePlace;
+  focusPoint?: [number, number];
   navigating: boolean;
 }) {
   const map = useMap();
   useEffect(() => {
+    if (!navigating && focusPoint) {
+      // The open-invite card covers the lower half of the map, so centre slightly
+      // south of the pin to keep it visible above the card.
+      const shifted = map.project(focusPoint, 17).add([0, map.getSize().y * 0.25]);
+      map.setView(map.unproject(shifted, 17), 17, { animate: true });
+      return;
+    }
     const center = navigating ? coordinates : selected ? [selected.lat, selected.lng] as [number, number] : coordinates;
     map.setView(center, 17, { animate: true });
-  }, [coordinates, map, navigating, selected]);
+  }, [coordinates, focusPoint, map, navigating, selected]);
   return null;
 }
 
@@ -146,13 +238,24 @@ interface MapCanvasProps {
   onPlacesLoaded: (places: VibePlace[]) => void;
   onWarnings: (warnings: string[]) => void;
   refresh: number;
+  openInvites: OpenInviteView[];
+  selectedOpenInviteId?: string;
+  onSelectOpenInvite: (invite: OpenInviteView) => void;
 }
 
 function MapWithLocation({
   category, selected, navigationTarget, onExpandRadar, reportedPlaceIds, onSelect, onPlacesLoaded, onWarnings, refresh,
+  openInvites, selectedOpenInviteId, onSelectOpenInvite,
   coordinates,
 }: MapCanvasProps & { coordinates: [number, number] }) {
   const { profile, placesCoordinates } = useVibe();
+  const selectedOpenInvite = openInvites.find((invite) => invite.id === selectedOpenInviteId);
+  const focusLat = selectedOpenInvite?.place.lat;
+  const focusLng = selectedOpenInvite?.place.lng;
+  const focusPoint = useMemo<[number, number] | undefined>(
+    () => focusLat !== undefined && focusLng !== undefined ? [focusLat, focusLng] : undefined,
+    [focusLat, focusLng],
+  );
   const queryCenter = placesCoordinates ?? coordinates;
   const [result, setResult] = useState<{
     key: string;
@@ -244,7 +347,7 @@ function MapWithLocation({
           url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
           maxZoom={19}
         />
-        <MapFocus coordinates={coordinates} selected={selected} navigating={Boolean(navigationTarget)} />
+        <MapFocus coordinates={coordinates} selected={selected} focusPoint={focusPoint} navigating={Boolean(navigationTarget)} />
         <Circle center={coordinates} radius={profile.radiusKm * 1000} pathOptions={{ color: "#8b5cf6", weight: 1, opacity: 0.5, fillOpacity: 0.04 }} />
         {[30, 60, 90].map((radius, index) => (
           <Circle
@@ -268,6 +371,15 @@ function MapWithLocation({
             )}
             title={place.title}
             eventHandlers={{ click: () => onSelect(place) }}
+          />
+        ))}
+        {openInvites.map((invite, index) => (
+          <OpenInviteMarker
+            key={invite.id}
+            invite={invite}
+            selected={invite.id === selectedOpenInviteId}
+            dropDelayMs={Math.min(index, 8) * DROP_STAGGER_MS}
+            onSelect={onSelectOpenInvite}
           />
         ))}
         {route && <Polyline positions={route} pathOptions={{ color: "#06b6d4", weight: 4, opacity: 0.95, dashArray: "7 10", className: "navigation-vector" }} />}

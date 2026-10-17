@@ -2,10 +2,17 @@
 
 import dynamic from "next/dynamic";
 import { AnimatePresence } from "framer-motion";
-import { Navigation, UserPlus } from "lucide-react";
+import { Navigation, Radio, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import AlertModal from "@/components/AlertModal";
 import InviteModal from "@/components/InviteModal";
+import OpenInviteModal from "@/components/OpenInviteModal";
+import OpenInviteSheet from "@/components/OpenInviteSheet";
+import SocialHub from "@/components/SocialHub";
+import SocialProfileModal from "@/components/SocialProfileModal";
+import SocialToasts from "@/components/SocialToasts";
+import { SocialProvider, useSocial } from "@/context/SocialContext";
+import type { OpenInviteView } from "@/lib/social-types";
 import BadgeAwardOverlay from "@/components/BadgeAwardOverlay";
 import BadgeProgressDrawer from "@/components/BadgeProgressDrawer";
 import MapLoader from "@/components/MapLoader";
@@ -94,13 +101,21 @@ function FindTonyApp() {
   const {
     profile, updateProfile, coordinates, locationLabel, requestLocation, requestHeading,
   } = useVibe();
+  const {
+    openInvites, hubOpen, profileSetupOpen, unreadMessages, unreadNotifications, openHub, requireProfile,
+  } = useSocial();
   const [categoryOverride, setCategoryOverride] = useState<Category>();
   const category = categoryOverride ?? profile.primaryVibe;
   const [started, setStarted] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [alertOpen, setAlertOpen] = useState(false);
   const [invitePlace, setInvitePlace] = useState<VibePlace>();
-  const [pickingInvitePlace, setPickingInvitePlace] = useState(false);
+  const [openInvitePlace, setOpenInvitePlace] = useState<VibePlace>();
+  const [selectedOpenInviteId, setSelectedOpenInviteId] = useState<string>();
+  const [lastChipInviteId, setLastChipInviteId] = useState<string>();
+  /** Set while the user is tapping a venue for a friends invite or an open invite. */
+  const [pickMode, setPickMode] = useState<"friends" | "open">();
+  const pickingInvitePlace = pickMode !== undefined;
   const [selected, setSelected] = useState<VibePlace>();
   const [navigationTarget, setNavigationTarget] = useState<VibePlace>();
   const [places, setPlaces] = useState<VibePlace[]>([]);
@@ -255,10 +270,10 @@ function FindTonyApp() {
   }
 
   function selectPlace(place: VibePlace) {
-    if (pickingInvitePlace) {
-      setPickingInvitePlace(false);
-      setInvitePlace(place);
-    }
+    if (pickMode === "friends") setInvitePlace(place);
+    if (pickMode === "open") setOpenInvitePlace(place);
+    setPickMode(undefined);
+    setSelectedOpenInviteId(undefined);
     setSelected(place);
     setNavigationTarget(undefined);
     const url = new URL(window.location.href);
@@ -274,6 +289,27 @@ function FindTonyApp() {
     url.searchParams.delete("placeId");
     url.searchParams.delete("category");
     window.history.replaceState(null, "", url);
+  }
+
+  function selectOpenInvite(invite: OpenInviteView) {
+    if (pickMode) return;
+    closePlace();
+    setSelectedOpenInviteId(invite.id);
+  }
+
+  function startOpenInvite(place?: VibePlace) {
+    requireProfile(() => {
+      if (place) setOpenInvitePlace(place);
+      else setPickMode("open");
+    });
+  }
+
+  function openInviteCreated(invite: OpenInviteView) {
+    setOpenInvitePlace(undefined);
+    closePlace();
+    setSelectedOpenInviteId(invite.id);
+    setCommunityStatus("YOUR OPEN INVITE IS LIVE");
+    window.setTimeout(() => setCommunityStatus(""), 5000);
   }
 
   function navigateTo(place: VibePlace) {
@@ -371,6 +407,16 @@ function FindTonyApp() {
   }
   const badgeProgress = getBadgeSnapshot(checkIns, userStats.droppedSpotCount, userStats.unlockedBadgeIds);
   const earnedBadges = badgeProgress.filter((badge) => badge.unlocked);
+  const selectedOpenInvite = openInvites.find((invite) => invite.id === selectedOpenInviteId);
+  const nearbyInvites = coordinates
+    ? openInvites.filter((invite) => !invite.isMine).sort((a, b) =>
+      distanceInMeters(coordinates[0], coordinates[1], a.place.lat, a.place.lng) -
+      distanceInMeters(coordinates[0], coordinates[1], b.place.lat, b.place.lng))
+    : openInvites.filter((invite) => !invite.isMine);
+  // Invites can sit off-screen, so each tap of the chip moves on to the next one (nearest first).
+  const currentChipIndex = nearbyInvites.findIndex((invite) => invite.id === (selectedOpenInviteId ?? lastChipInviteId));
+  const nextChipInvite = nearbyInvites[(currentChipIndex + 1) % Math.max(nearbyInvites.length, 1)];
+  const showingNearbyInvite = Boolean(selectedOpenInvite && nearbyInvites.some((invite) => invite.id === selectedOpenInvite.id));
 
   return (
     <main className="app-shell">
@@ -378,9 +424,11 @@ function FindTonyApp() {
         category={category}
         onCategoryChange={(next) => { setCategoryOverride(next); closePlace(); }}
         onOpenProfile={() => setProfileOpen(true)}
+        onOpenSocial={() => openHub("inbox")}
+        socialBadgeCount={unreadMessages + unreadNotifications}
         locationLabel={locationLabel}
       />
-      <div className={`map-stage ${selected ? "map-stage--detail-open" : ""}`}>
+      <div className={`map-stage ${selected ? "map-stage--detail-open" : ""} ${selectedOpenInvite ? "map-stage--invite-open" : ""}`}>
         <MapCanvas
           category={category}
           selected={selected}
@@ -394,8 +442,25 @@ function FindTonyApp() {
           onPlacesLoaded={handlePlacesLoaded}
           onWarnings={handleWarnings}
           refresh={refresh}
+          openInvites={openInvites}
+          selectedOpenInviteId={selectedOpenInviteId}
+          onSelectOpenInvite={selectOpenInvite}
         />
         {coordinates && <div className="map-radius-tag">WITHIN {profile.radiusKm} KM</div>}
+        {coordinates && nextChipInvite && !selected && (!selectedOpenInvite || (showingNearbyInvite && nearbyInvites.length > 1)) && (
+          <button
+            className="open-invite-count"
+            onClick={() => {
+              setLastChipInviteId(nextChipInvite.id);
+              selectOpenInvite(nextChipInvite);
+            }}
+          >
+            <span className="open-invite-count__dot" aria-hidden="true" />
+            {selectedOpenInvite
+              ? `${currentChipIndex + 1} OF ${nearbyInvites.length} · NEXT INVITE →`
+              : `${nearbyInvites.length} OPEN INVITE${nearbyInvites.length === 1 ? "" : "S"} NEARBY`}
+          </button>
+        )}
         {coordinates && <button
           className="explorer-stats"
           type="button"
@@ -414,17 +479,31 @@ function FindTonyApp() {
         {coordinates && !pickingInvitePlace && (
           <button className="button button-invite" onClick={() => {
             if (selected) setInvitePlace(selected);
-            else setPickingInvitePlace(true);
+            else setPickMode("friends");
           }}>
             <UserPlus size={15} aria-hidden="true" /> INVITE FRIENDS
           </button>
         )}
+        {coordinates && !pickingInvitePlace && (
+          <button className="button button-open-invite" onClick={() => startOpenInvite(selected)}>
+            <Radio size={15} aria-hidden="true" /> OPEN INVITE
+          </button>
+        )}
         {pickingInvitePlace && (
           <div className="invite-pick-hint" role="status">
-            <span>TAP A PLACE ON THE MAP TO INVITE FRIENDS</span>
-            <button aria-label="Cancel invite" onClick={() => setPickingInvitePlace(false)}>×</button>
+            <span>{pickMode === "open" ? "TAP A VENUE TO BROADCAST AN OPEN INVITE" : "TAP A PLACE ON THE MAP TO INVITE FRIENDS"}</span>
+            <button aria-label="Cancel invite" onClick={() => setPickMode(undefined)}>×</button>
           </div>
         )}
+        <AnimatePresence>
+          {selectedOpenInvite && !pickingInvitePlace && (
+            <OpenInviteSheet
+              key={selectedOpenInvite.id}
+              invite={selectedOpenInvite}
+              onClose={() => setSelectedOpenInviteId(undefined)}
+            />
+          )}
+        </AnimatePresence>
         {warnings.length > 0 && places.length > 0 && (
           <div className="api-warning" role="status">{warnings.join(" ")}</div>
         )}
@@ -451,6 +530,7 @@ function FindTonyApp() {
           onClose={closePlace}
           onNavigate={navigateTo}
           onInvite={setInvitePlace}
+          onOpenInvite={startOpenInvite}
           onTagAdded={updatePlaceTags}
           onTagRemoved={updatePlaceTags}
           onReport={reportPlace}
@@ -469,6 +549,17 @@ function FindTonyApp() {
         </AnimatePresence>
       )}
       {invitePlace && <InviteModal key={invitePlace.id} place={invitePlace} onClose={() => setInvitePlace(undefined)} />}
+      {openInvitePlace && (
+        <OpenInviteModal
+          key={openInvitePlace.id}
+          place={openInvitePlace}
+          onClose={() => setOpenInvitePlace(undefined)}
+          onCreated={openInviteCreated}
+        />
+      )}
+      {hubOpen && <SocialHub />}
+      {profileSetupOpen && <SocialProfileModal />}
+      <SocialToasts />
       <BadgeProgressDrawer
         open={badgeProgressOpen}
         badges={badgeProgress}
@@ -492,7 +583,7 @@ function FindTonyApp() {
 }
 
 export default function HomePage() {
-  return <VibeProvider><FindTonyApp /></VibeProvider>;
+  return <VibeProvider><SocialProvider><FindTonyApp /></SocialProvider></VibeProvider>;
 }
 
 interface BeforeInstallPromptEvent extends Event {

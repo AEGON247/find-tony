@@ -9,6 +9,8 @@ data/alerts.json
 data/alerts.json.*.tmp
 data/invites.json
 data/invites.json.*.tmp
+data/social.json
+data/social.json.*.tmp
 npm-debug.log*
 *.tsbuildinfo
 node_modules

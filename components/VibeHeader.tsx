@@ -1,6 +1,6 @@
 "use client";
 
-import { MapPin, UserRound } from "lucide-react";
+import { MapPin, MessageCircle, UserRound } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import type { Category } from "@/lib/types";
@@ -16,10 +16,14 @@ interface VibeHeaderProps {
   category: Category;
   onCategoryChange: (category: Category) => void;
   onOpenProfile: () => void;
+  onOpenSocial: () => void;
+  socialBadgeCount: number;
   locationLabel: string;
 }
 
-export default function VibeHeader({ category, onCategoryChange, onOpenProfile, locationLabel }: VibeHeaderProps) {
+export default function VibeHeader({
+  category, onCategoryChange, onOpenProfile, onOpenSocial, socialBadgeCount, locationLabel,
+}: VibeHeaderProps) {
   return (
     <header className="app-header">
       <Link href="/" className="wordmark" aria-label="Find Tony home">
@@ -48,9 +52,20 @@ export default function VibeHeader({ category, onCategoryChange, onOpenProfile, 
           </button>
         ))}
       </nav>
-      <button className="profile-trigger" onClick={onOpenProfile} aria-label="Open profile" title="Profile">
-        <span className="profile-avatar"><UserRound size={17} /></span>
-      </button>
+      <div className="header-actions">
+        <button
+          className="profile-trigger social-trigger"
+          onClick={onOpenSocial}
+          aria-label={socialBadgeCount > 0 ? `Open inbox, ${socialBadgeCount} new` : "Open inbox"}
+          title="Inbox & Meet"
+        >
+          <span className="profile-avatar"><MessageCircle size={17} /></span>
+          {socialBadgeCount > 0 && <span className="social-badge social-trigger__badge">{socialBadgeCount > 9 ? "9+" : socialBadgeCount}</span>}
+        </button>
+        <button className="profile-trigger" onClick={onOpenProfile} aria-label="Open profile" title="Profile">
+          <span className="profile-avatar"><UserRound size={17} /></span>
+        </button>
+      </div>
     </header>
   );
 }
