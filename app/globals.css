@@ -258,6 +258,21 @@ a { color: inherit; }
 .profile-form textarea { resize: vertical; }
 .profile-form fieldset { margin: 10px 0 0; padding: 0; border: 0; }
 .profile-form fieldset legend { margin-bottom: 9px; }
+.profile-preferences { display: grid; gap: 8px; margin: 14px 0 3px; padding: 0; border: 0; }
+.profile-preferences legend { margin-bottom: 7px; font-size: 10px; font-weight: 900; letter-spacing: .08em; }
+.preference-toggle { display: flex; min-height: 54px; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 11px; background: #f3f1f5; border: 2px solid var(--ink); cursor: pointer; }
+.preference-toggle > span { display: grid; gap: 3px; }
+.preference-toggle strong { font-size: 10px; letter-spacing: .04em; }
+.preference-toggle small { color: #514d59; font-size: 10px; line-height: 1.4; }
+.preference-toggle input[type="checkbox"] { position: relative; appearance: none; width: 42px; min-width: 42px; min-height: 24px; height: 24px; flex: 0 0 42px; margin: 0; padding: 0; background: #c7c3ce; border: 2px solid var(--ink); border-radius: 999px; cursor: pointer; transition: background .16s ease; }
+.preference-toggle input[type="checkbox"]::before { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border: 1px solid var(--ink); border-radius: 50%; content: ""; transition: transform .16s ease; }
+.preference-toggle input[type="checkbox"]:checked { background: var(--violet); }
+.preference-toggle input[type="checkbox"]:checked::before { transform: translateX(18px); }
+.preference-toggle input[type="checkbox"]:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.alert-temporary-toggle { margin-top: 4px; }
+.alert-expiry-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 10px; margin: 0; padding: 10px; background: #f3f1f5; border: 2px solid var(--ink); }
+.alert-expiry-fields legend { grid-column: 1 / -1; font-size: 10px; font-weight: 900; letter-spacing: .06em; }
+.alert-expiry-fields label { font-size: 9px; font-weight: 800; }
 .radius-options { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
 .radius-option { display: flex; min-height: 38px; align-items: center; justify-content: center; gap: 4px; background: #f3f1f5; border: 2px solid var(--ink); font-size: 10px; font-weight: 800; cursor: pointer; }
 .radius-option input { accent-color: var(--violet); }

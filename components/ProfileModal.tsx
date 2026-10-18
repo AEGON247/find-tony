@@ -17,7 +17,7 @@ export default function ProfileModal({
   onClose: () => void;
   badges: BadgeProgress[];
 }) {
-  const { profile, updateProfile } = useVibe();
+  const { profile, updateProfile, preferences, updatePreferences } = useVibe();
   const [draft, setDraft] = useState(profile);
 
   const save = (event: React.FormEvent<HTMLFormElement>) => {
@@ -49,6 +49,25 @@ export default function ProfileModal({
             <h2 id="profile-title">VIBE PROFILE</h2>
             <p className="drawer-copy">Choose a default vibe and search radius. Your profile stays on this device.</p>
             <BadgeShowcase badges={badges.filter((badge) => badge.unlocked)} />
+            <fieldset className="profile-preferences">
+              <legend>MAP FILTERS</legend>
+              <label className="preference-toggle">
+                <span><strong>HIDE SMOKING SPOTS</strong><small>Hide places tagged for smoking or cigars.</small></span>
+                <input
+                  type="checkbox"
+                  checked={preferences.hideSmokingSpots}
+                  onChange={(event) => updatePreferences({ ...preferences, hideSmokingSpots: event.target.checked })}
+                />
+              </label>
+              <label className="preference-toggle">
+                <span><strong>HIDE ALCOHOL SPOTS</strong><small>Hide places tagged as bars, pubs, or alcohol venues.</small></span>
+                <input
+                  type="checkbox"
+                  checked={preferences.hideAlcoholSpots}
+                  onChange={(event) => updatePreferences({ ...preferences, hideAlcoholSpots: event.target.checked })}
+                />
+              </label>
+            </fieldset>
             <form onSubmit={save} className="profile-form">
               <label htmlFor="alias">YOUR HANDLE</label>
               <input id="alias" maxLength={32} value={draft.alias} onChange={(event) => setDraft({ ...draft, alias: event.target.value })} placeholder="@sydney_hacker" />

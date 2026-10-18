@@ -40,6 +40,7 @@ export interface VibePlace {
   eventEnd?: string;
   isFree?: boolean;
   isMapPoi?: boolean;
+  expiresAt?: string | null;
 }
 
 export interface UserProfile {

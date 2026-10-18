@@ -15,7 +15,9 @@ Open [http://localhost:3000](http://localhost:3000). Grant location permission t
 
 The public Luma Sydney discovery feed and OpenStreetMap Overpass/Nominatim place data require no API keys. `EVENTBRITE_API_KEY` optionally enables a second live event provider; Luma remains the primary event source, and event listings are filtered to upcoming events with usable Sydney coordinates and the selected radius. `FOURSQUARE_SERVICE_KEY` (a Foursquare Places API service key, sent as a Bearer token; `FOURSQUARE_API_KEY` / `FOURSQUARE_KEY` are read as fallbacks, but legacy `fsq3…` v3 keys are rejected) optionally enables Foursquare Places using free-tier fields only (no photos, hours, or descriptions without paid credits) after Overpass and before Nominatim for venue categories. Provider keys are read only on the server and must never use a `NEXT_PUBLIC_` variable. Nearby map places use a 30-minute success cache, race public Overpass endpoints with a 1.5-second abort budget, and fall back to Foursquare and then Nominatim when those endpoints fail. Expired cached results are served while live data refreshes in the background. The app does not bundle static venue coordinates or seeded Sydney places. The map uses OpenStreetMap raster tiles with a CSS grayscale/dark treatment; no map key is required.
 
-Foursquare photos are fetched separately when a venue is opened; the category artwork is used when no images are returned or photo access is unavailable.
+Foursquare photos are fetched from the Places v3 photos endpoint when a venue is opened. If a venue has no available photo or the request fails, a category-specific Unsplash image is used before falling back to the vector artwork. Foursquare photo URLs from `fastly.4sqi.net` and `ss3.4sqi.net` are allowed by the Next.js image configuration.
+
+The photo endpoint requires a Foursquare v3 API key in `FOURSQUARE_API_KEY`, `FSQ_API_KEY`, or `FOURSQUARE_KEY`; the newer `FOURSQUARE_SERVICE_KEY` is used for Places search and is not sent to the v3 photo endpoint.
 
 For a local production run, optionally copy `.env.example` to `.env`, then build and start:
 
@@ -28,7 +30,7 @@ npm start
 
 - `GET /api/vibes?category=EVENTS&lat={lat}&lng={lng}&radius=3` combines upcoming Luma events, optional Eventbrite results, and community event pins. Live event titles are used to infer starting event-type tags; available public listing descriptions, times, registration links, and images are shown where supplied.
 - `GET /api/vibes?category=FOODIE&lat={lat}&lng={lng}&radius=3` returns nearby live map places and saved community places. Venue categories use OpenStreetMap Overpass, optional Foursquare, and Nominatim fallback. Provider failures are surfaced as warnings while saved community places remain available.
-- `POST /api/alerts` persists a community pin in `DATA_DIR/alerts.json`; spots submitted as EVENTS can include an event type.
+- `POST /api/alerts` persists a community pin in `DATA_DIR/alerts.json`; spots submitted as EVENTS can include an event type. A spot can optionally expire after a selected duration, and expired spots are omitted from map results.
 - `GET /api/places/{placeId}/photos` returns up to three Foursquare photo URLs when the configured key permits access.
 - `POST /api/place-tags` adds a shared custom tag for a place; `DELETE /api/place-tags` removes a community tag. Both changes persist in `DATA_DIR/place-tags.json`.
 - `POST /api/reports` saves a place-removal/accuracy report in `DATA_DIR/reports.json` for team review and locally hides the reported place on that browser.
@@ -40,7 +42,7 @@ Place details open inside the app. The panel includes an available photo or cate
 
 ## User profile and location
 
-The profile drawer lets users set an alias, default vibe, and radius, and showcases earned side-quest badges. Tap the streak card on the map to open the full badge quest guide with each badge's criteria and progress. The default radius is 3 km. Device location is required to search nearby and is sent to the Find Tony backend, which uses it to request nearby map data from public OpenStreetMap services. Device location is not stored as location history. Nearby places can be checked into within 50 m, contributing to locally stored streaks and permanently saved badge unlocks in that browser's localStorage.
+The profile drawer lets users set an alias, default vibe, and radius, hide smoking or alcohol-related places from map markers, and view earned side-quest badges. Map filter preferences persist in localStorage. Tap the streak card on the map to open the full badge quest guide with each badge's criteria and progress. The default radius is 3 km. Device location is required to search nearby and is sent to the Find Tony backend, which uses it to request nearby map data from public OpenStreetMap services. Device location is not stored as location history. Nearby places can be checked into within 50 m, contributing to locally stored streaks and permanently saved badge unlocks in that browser's localStorage.
 
 ## PWA
 

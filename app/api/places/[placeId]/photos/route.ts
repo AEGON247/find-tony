@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getFoursquareApiKey } from "@/lib/openstreetmap";
+import { getFoursquareV3ApiKey } from "@/lib/openstreetmap";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,12 +28,11 @@ async function loadPhotos(placeId: string, apiKey: string): Promise<string[]> {
 
   const request = (async () => {
     const response = await fetch(
-      `https://places-api.foursquare.com/places/${encodeURIComponent(placeId)}/photos?limit=3`,
+      `https://api.foursquare.com/v3/places/${encodeURIComponent(placeId)}/photos?limit=3`,
       {
         headers: {
           Accept: "application/json",
           Authorization: apiKey,
-          "X-Places-Api-Version": "2025-06-17",
         },
         signal: AbortSignal.timeout(2_500),
         cache: "no-store",
@@ -78,9 +77,9 @@ export async function GET(
     return NextResponse.json({ error: "A valid Foursquare place ID is required." }, { status: 400 });
   }
 
-  const apiKey = getFoursquareApiKey();
+  const apiKey = getFoursquareV3ApiKey();
   if (!apiKey) {
-    console.warn("[Foursquare Photos] No server-side Foursquare key is configured; using the category artwork.");
+    console.warn("[Foursquare Photos] No Foursquare v3 API key is configured; using the category artwork.");
     return NextResponse.json({ photos: [] });
   }
 

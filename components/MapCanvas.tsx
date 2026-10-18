@@ -58,6 +58,18 @@ interface OpenInviteIconOptions {
   dropDelayMs: number;
 }
 
+function hasPlaceTag(place: VibePlace, target: "smoking" | "alcohol") {
+  const words: string[] = [
+    place.category,
+    place.placeType ?? "",
+    ...(place.tags ?? []),
+    ...(place.sourceTags ?? []),
+    ...(place.communityTags ?? []),
+  ].join(" ").toLowerCase().replace(/[_-]+/g, " ").match(/[a-z0-9]+/g) ?? [];
+  if (target === "smoking") return words.includes("smoking") || (words.includes("cigar") && words.includes("bar"));
+  return words.includes("alcohol") || words.includes("bar") || words.includes("pub");
+}
+
 // Only fixed vibe labels and numbers go into this HTML, never user-written text.
 function openInviteIcon(options: OpenInviteIconOptions) {
   const vibe = INVITE_VIBES[options.vibe];
@@ -248,7 +260,7 @@ function MapWithLocation({
   openInvites, selectedOpenInviteId, onSelectOpenInvite,
   coordinates,
 }: MapCanvasProps & { coordinates: [number, number] }) {
-  const { profile, placesCoordinates } = useVibe();
+  const { profile, preferences, placesCoordinates } = useVibe();
   const selectedOpenInvite = openInvites.find((invite) => invite.id === selectedOpenInviteId);
   const focusLat = selectedOpenInvite?.place.lat;
   const focusLng = selectedOpenInvite?.place.lng;
@@ -263,6 +275,7 @@ function MapWithLocation({
     warnings: string[];
     error: string;
   }>({ key: "", places: [], warnings: [], error: "" });
+  const [now, setNow] = useState(() => Date.now());
   const vibratedPlaces = useRef(new Set<string>());
   const query = useMemo(() => new URLSearchParams({
     category,
@@ -273,8 +286,13 @@ function MapWithLocation({
   const queryKey = `${query}&refresh=${refresh}`;
   const loading = result.key !== queryKey;
   const places = useMemo(
-    () => result.places.filter((place) => !reportedPlaceIds.includes(place.id)),
-    [reportedPlaceIds, result.places],
+    () => result.places.filter((place) =>
+      !reportedPlaceIds.includes(place.id) &&
+      (!place.expiresAt || Date.parse(place.expiresAt) > now) &&
+      !(preferences.hideSmokingSpots && hasPlaceTag(place, "smoking")) &&
+      !(preferences.hideAlcoholSpots && hasPlaceTag(place, "alcohol")),
+    ),
+    [now, preferences.hideAlcoholSpots, preferences.hideSmokingSpots, reportedPlaceIds, result.places],
   );
   const error = result.key === queryKey ? result.error : "";
   const warnings = result.key === queryKey ? result.warnings : [];
@@ -301,7 +319,6 @@ function MapWithLocation({
           ? ["Offline mode: showing cached places; live events and map tiles need an internet connection."]
           : body.warnings;
         setResult({ key: queryKey, places: unreportedPlaces, warnings, error: "" });
-        onPlacesLoaded(unreportedPlaces);
         onWarnings(warnings);
       })
       .catch((reason: unknown) => {
@@ -310,7 +327,24 @@ function MapWithLocation({
         setResult((current) => ({ ...current, key: queryKey, error: message }));
       });
     return () => controller.abort();
-  }, [category, onPlacesLoaded, onWarnings, profile.radiusKm, query, queryCenter, queryKey, reportedPlaceIds]);
+  }, [category, onWarnings, profile.radiusKm, query, queryCenter, queryKey, reportedPlaceIds]);
+
+  useEffect(() => {
+    if (!result.places.some((place) => place.expiresAt && Date.parse(place.expiresAt) > Date.now())) return;
+    const timer = window.setInterval(() => {
+      const timestamp = Date.now();
+      setNow(timestamp);
+      setResult((current) => {
+        const activePlaces = current.places.filter((place) => !place.expiresAt || Date.parse(place.expiresAt) > timestamp);
+        return activePlaces.length === current.places.length
+          ? current
+          : { ...current, places: activePlaces };
+      });
+    }, 15_000);
+    return () => window.clearInterval(timer);
+  }, [result.places]);
+
+  useEffect(() => onPlacesLoaded(places), [onPlacesLoaded, places]);
 
   useEffect(() => {
     for (const place of places) {

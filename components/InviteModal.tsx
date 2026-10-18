@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, Copy, Instagram, Mail, MapPin, MessageCircle, Share2, X } from "lucide-react";
 import { useVibe } from "@/context/VibeContext";
+import { useSocial } from "@/context/SocialContext";
 import {
   INVITE_VIBE_IDS,
   INVITE_VIBES,
@@ -30,6 +31,7 @@ function isMobileDevice() {
 
 export default function InviteModal({ place, onClose }: { place: VibePlace; onClose: () => void }) {
   const { profile } = useVibe();
+  const { notify } = useSocial();
   const [vibe, setVibe] = useState<InviteVibeId>(() => defaultVibeFor(place.category));
   const [startsAt, setStartsAt] = useState(defaultStartTime);
   const [message, setMessage] = useState("");
@@ -74,8 +76,10 @@ export default function InviteModal({ place, onClose }: { place: VibePlace; onCl
       const result = await response.json() as { item?: Invite; error?: string };
       if (!response.ok || !result.item) throw new Error(result.error ?? "The invite could not be created.");
       setInvite(result.item);
+      notify("Your invite is ready to share.");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The invite could not be created.");
+      notify("Could not create the invite. Try again.");
     } finally {
       setSaving(false);
     }

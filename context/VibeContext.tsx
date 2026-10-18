@@ -7,6 +7,18 @@ import { startDeviceHeadingTracking } from "@/lib/device-heading";
 
 const PROFILE_KEY = "find-tony-profile-v1";
 const PROFILE_EVENT = "find-tony-profile-change";
+const PREFERENCES_KEY = "find-tony-map-preferences-v1";
+const PREFERENCES_EVENT = "find-tony-map-preferences-change";
+
+export interface MapPreferences {
+  hideSmokingSpots: boolean;
+  hideAlcoholSpots: boolean;
+}
+
+const DEFAULT_PREFERENCES: MapPreferences = {
+  hideSmokingSpots: false,
+  hideAlcoholSpots: false,
+};
 
 export const DEFAULT_PROFILE: UserProfile = {
   alias: "",
@@ -19,6 +31,8 @@ const VALID_CATEGORIES = ["FOODIE", "PARTY", "EVENTS", "CHILL"];
 interface VibeContextValue {
   profile: UserProfile;
   updateProfile: (profile: UserProfile) => void;
+  preferences: MapPreferences;
+  updatePreferences: (preferences: MapPreferences) => void;
   coordinates?: [number, number];
   placesCoordinates?: [number, number];
   locationLabel: string;
@@ -71,14 +85,43 @@ function parseProfile(serialized: string | null): UserProfile {
   }
 }
 
+function readPreferences(): MapPreferences {
+  try {
+    const raw = localStorage.getItem(PREFERENCES_KEY);
+    if (!raw) return DEFAULT_PREFERENCES;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return DEFAULT_PREFERENCES;
+    const value = parsed as Record<string, unknown>;
+    return {
+      hideSmokingSpots: value.hideSmokingSpots === true,
+      hideAlcoholSpots: value.hideAlcoholSpots === true,
+    };
+  } catch (error) {
+    console.error("Could not read saved map preferences.", error);
+    return DEFAULT_PREFERENCES;
+  }
+}
+
 export function VibeProvider({ children }: Readonly<{ children: React.ReactNode }>) {
   const serializedProfile = useSyncExternalStore(subscribeProfile, getProfileSnapshot, () => null);
   const profile = useMemo(() => parseProfile(serializedProfile), [serializedProfile]);
   const [deviceCoordinates, setDeviceCoordinates] = useState<[number, number]>();
   const [placesCoordinates, setPlacesCoordinates] = useState<[number, number]>();
   const [locationStatus, setLocationStatus] = useState<"idle" | "locating" | "device" | "error">("idle");
+  const [preferences, setPreferences] = useState<MapPreferences>(DEFAULT_PREFERENCES);
   const watchId = useRef<number | undefined>(undefined);
   const lastKnownCoordinates = useRef<[number, number] | undefined>(undefined);
+
+  useEffect(() => {
+    setPreferences(readPreferences());
+    const syncPreferences = () => setPreferences(readPreferences());
+    window.addEventListener("storage", syncPreferences);
+    window.addEventListener(PREFERENCES_EVENT, syncPreferences);
+    return () => {
+      window.removeEventListener("storage", syncPreferences);
+      window.removeEventListener(PREFERENCES_EVENT, syncPreferences);
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -98,6 +141,16 @@ export function VibeProvider({ children }: Readonly<{ children: React.ReactNode 
   const updateProfile = useCallback((nextProfile: UserProfile) => {
     localStorage.setItem(PROFILE_KEY, JSON.stringify(nextProfile));
     window.dispatchEvent(new Event(PROFILE_EVENT));
+  }, []);
+
+  const updatePreferences = useCallback((nextPreferences: MapPreferences) => {
+    setPreferences(nextPreferences);
+    try {
+      localStorage.setItem(PREFERENCES_KEY, JSON.stringify(nextPreferences));
+      window.dispatchEvent(new Event(PREFERENCES_EVENT));
+    } catch (error) {
+      console.error("Could not save map preferences.", error);
+    }
   }, []);
 
   const requestLocation = useCallback(() => {
@@ -171,8 +224,8 @@ export function VibeProvider({ children }: Readonly<{ children: React.ReactNode 
   }, []);
 
   const value = useMemo(() => ({
-    profile, updateProfile, coordinates, placesCoordinates, locationLabel, locationStatus, requestLocation, requestHeading,
-  }), [profile, updateProfile, coordinates, placesCoordinates, locationLabel, locationStatus, requestLocation, requestHeading]);
+    profile, updateProfile, preferences, updatePreferences, coordinates, placesCoordinates, locationLabel, locationStatus, requestLocation, requestHeading,
+  }), [profile, updateProfile, preferences, updatePreferences, coordinates, placesCoordinates, locationLabel, locationStatus, requestLocation, requestHeading]);
 
   return <VibeContext.Provider value={value}>{children}</VibeContext.Provider>;
 }

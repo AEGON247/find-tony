@@ -95,18 +95,27 @@ let nextNominatimRequestAt = 0;
 let nominatimQueue: Promise<void> = Promise.resolve();
 let foursquareCooldownUntil = 0;
 
+function sanitizeFoursquareKey(value?: string) {
+  const trimmed = value?.trim() ?? "";
+  const unquoted = trimmed.replace(/^(['"])(.*)\1$/s, "$2").trim();
+  return unquoted.replace(/^["']+|["']+$/g, "").replace(/^bearer\s+/i, "").trim();
+}
+
 export function getFoursquareApiKey() {
   return [
     process.env.FOURSQUARE_SERVICE_KEY,
     process.env.FOURSQUARE_API_KEY,
+    process.env.FSQ_API_KEY,
     process.env.FOURSQUARE_KEY,
-  ]
-    .map((value) => {
-      const trimmed = value?.trim() ?? "";
-      const unquoted = trimmed.replace(/^(['"])(.*)\1$/s, "$2").trim();
-      return unquoted.replace(/^["']+|["']+$/g, "").replace(/^bearer\s+/i, "").trim();
-    })
-    .find(Boolean) ?? "";
+  ].map(sanitizeFoursquareKey).find(Boolean) ?? "";
+}
+
+export function getFoursquareV3ApiKey() {
+  return [
+    process.env.FOURSQUARE_API_KEY,
+    process.env.FSQ_API_KEY,
+    process.env.FOURSQUARE_KEY,
+  ].map(sanitizeFoursquareKey).find(Boolean) ?? "";
 }
 
 async function waitForNominatimSlot() {

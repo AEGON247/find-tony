@@ -190,6 +190,8 @@ function FindTonyApp() {
 
   const handlePlacesLoaded = useCallback((items: VibePlace[]) => {
     setPlaces(items);
+    setSelected((current) => current?.expiresAt && Date.parse(current.expiresAt) <= Date.now() ? undefined : current);
+    setNavigationTarget((current) => current?.expiresAt && Date.parse(current.expiresAt) <= Date.now() ? undefined : current);
     if (sharedPlaceId.current) {
       const sharedPlace = items.find((item) => item.id === sharedPlaceId.current);
       if (sharedPlace) {

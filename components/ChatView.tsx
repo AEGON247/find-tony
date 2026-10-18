@@ -16,7 +16,7 @@ function messageTime(iso: string) {
 type SafetyMode = { userId: string; step: "menu" | "block" | "report" };
 
 export default function ChatView({ chatId, onBack }: { chatId: string; onBack: () => void }) {
-  const { profile, messageUser, blockUser, reportUser, refresh } = useSocial();
+  const { profile, messageUser, blockUser, reportUser, refresh, notify } = useSocial();
   const [detail, setDetail] = useState<ChatDetail>();
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -64,14 +64,36 @@ export default function ChatView({ chatId, onBack }: { chatId: string; onBack: (
   async function send(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!text.trim() || sending) return;
+    const messageText = text.trim();
+    const optimisticId = `pending-${crypto.randomUUID()}`;
+    const optimisticMessage: ChatMessage = {
+      id: optimisticId,
+      senderId: myId ?? null,
+      senderAlias: profile?.alias ?? "You",
+      text: messageText,
+      createdAt: new Date().toISOString(),
+    };
     setSending(true);
     setError("");
+    setText("");
+    setDetail((current) => current
+      ? { ...current, messages: [...current.messages, optimisticMessage] }
+      : current);
     try {
-      const result = await socialFetch<{ item: ChatMessage }>(`/api/social/chats/${chatId}`, { method: "POST", json: { text } });
-      setText("");
-      setDetail((current) => current ? { ...current, messages: [...current.messages, result.item] } : current);
+      const result = await socialFetch<{ item: ChatMessage }>(`/api/social/chats/${chatId}`, { method: "POST", json: { text: messageText } });
+      setDetail((current) => current ? {
+        ...current,
+        messages: current.messages.some((item) => item.id === optimisticId)
+          ? current.messages.map((item) => item.id === optimisticId ? result.item : item)
+          : [...current.messages, result.item],
+      } : current);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Your message could not be sent.");
+      notify("Could not send your message. It has been removed from the chat.");
+      setText((current) => current || messageText);
+      setDetail((current) => current
+        ? { ...current, messages: current.messages.filter((item) => item.id !== optimisticId) }
+        : current);
     } finally {
       setSending(false);
     }

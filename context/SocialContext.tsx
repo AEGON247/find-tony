@@ -64,6 +64,7 @@ interface SocialContextValue {
   closeChat: () => void;
   closeHub: () => void;
   dismissToast: (id: string) => void;
+  notify: (text: string) => void;
   refresh: () => void;
   markNotificationsRead: () => Promise<void>;
   createOpenInvite: (input: OpenInviteInput) => Promise<OpenInviteView>;
@@ -129,6 +130,10 @@ export function SocialProvider({ children }: Readonly<{ children: React.ReactNod
     setToasts((current) => [...current.filter((item) => item.id !== toast.id), toast].slice(-3));
     window.setTimeout(() => setToasts((current) => current.filter((item) => item.id !== toast.id)), TOAST_LIFETIME_MS);
   }, []);
+
+  const notify = useCallback((text: string) => {
+    pushToast({ id: `action-${crypto.randomUUID()}`, text });
+  }, [pushToast]);
 
   const refresh = useCallback(() => setSyncTick((value) => value + 1), []);
 
@@ -198,7 +203,10 @@ export function SocialProvider({ children }: Readonly<{ children: React.ReactNod
         const result = await socialFetch<{ items: OpenInviteView[] }>(
           `/api/social/open-invites?lat=${center![0]}&lng=${center![1]}&radius=${radiusKm}`,
         );
-        if (!cancelled) setAllOpenInvites(result.items);
+        if (!cancelled)         setAllOpenInvites((current) => [
+          ...result.items,
+          ...current.filter((invite) => invite.id.startsWith("pending-")),
+        ]);
       } catch (error) {
         if (!cancelled) console.warn("Could not load open invites.", error);
       } finally {
@@ -278,29 +286,68 @@ export function SocialProvider({ children }: Readonly<{ children: React.ReactNod
   }, []);
 
   const createOpenInvite = useCallback(async (input: OpenInviteInput) => {
-    const result = await socialFetch<{ item: OpenInviteView }>("/api/social/open-invites", { method: "POST", json: input });
-    replaceInvite(result.item);
-    refresh();
-    // Ask once so hosts can hear about RSVPs while the app is in a background tab.
-    if (typeof Notification !== "undefined" && Notification.permission === "default") {
-      void Notification.requestPermission().catch(() => undefined);
+    if (!profile) throw new Error("Set up your social profile before broadcasting an invite.");
+    const createdAt = new Date().toISOString();
+    const optimisticId = `pending-${crypto.randomUUID()}`;
+    const optimistic: OpenInviteView = {
+      id: optimisticId,
+      ...input,
+      hostId: profile.id,
+      hostAlias: profile.alias,
+      hostBio: profile.bio,
+      hostVibes: profile.vibes,
+      createdAt,
+      expiresAt: new Date(Date.now() + input.durationMinutes * 60_000).toISOString(),
+      goingCount: 0,
+      isMine: true,
+      amGoing: false,
+    };
+    replaceInvite(optimistic);
+    try {
+      const result = await socialFetch<{ item: OpenInviteView }>("/api/social/open-invites", { method: "POST", json: input });
+      setAllOpenInvites((current) => current.filter((invite) => invite.id !== optimisticId));
+      replaceInvite(result.item);
+      refresh();
+      if (typeof Notification !== "undefined" && Notification.permission === "default") {
+        void Notification.requestPermission().catch(() => undefined);
+      }
+      return result.item;
+    } catch (error) {
+      setAllOpenInvites((current) => current.filter((invite) => invite.id !== optimisticId));
+      notify("Could not send the open invite. Try again.");
+      throw error;
     }
-    return result.item;
-  }, [refresh, replaceInvite]);
+  }, [notify, profile, refresh, replaceInvite]);
 
   const rsvp = useCallback(async (inviteId: string) => {
-    const result = await socialFetch<{ item: OpenInviteView }>(`/api/social/open-invites/${inviteId}/rsvp`, { method: "POST" });
-    replaceInvite(result.item);
-    refresh();
-    return result.item;
-  }, [refresh, replaceInvite]);
+    const previous = allOpenInvites.find((invite) => invite.id === inviteId);
+    if (previous) replaceInvite({ ...previous, amGoing: true, goingCount: previous.goingCount + 1 });
+    try {
+      const result = await socialFetch<{ item: OpenInviteView }>(`/api/social/open-invites/${inviteId}/rsvp`, { method: "POST" });
+      replaceInvite(result.item);
+      refresh();
+      return result.item;
+    } catch (error) {
+      if (previous) replaceInvite(previous);
+      notify("Could not RSVP to the invite. Your place has been restored.");
+      throw error;
+    }
+  }, [allOpenInvites, notify, refresh, replaceInvite]);
 
   const leaveInvite = useCallback(async (inviteId: string) => {
-    const result = await socialFetch<{ item: OpenInviteView }>(`/api/social/open-invites/${inviteId}/rsvp`, { method: "DELETE" });
-    replaceInvite(result.item);
-    refresh();
-    return result.item;
-  }, [refresh, replaceInvite]);
+    const previous = allOpenInvites.find((invite) => invite.id === inviteId);
+    if (previous) replaceInvite({ ...previous, amGoing: false, goingCount: Math.max(0, previous.goingCount - 1) });
+    try {
+      const result = await socialFetch<{ item: OpenInviteView }>(`/api/social/open-invites/${inviteId}/rsvp`, { method: "DELETE" });
+      replaceInvite(result.item);
+      refresh();
+      return result.item;
+    } catch (error) {
+      if (previous) replaceInvite(previous);
+      notify("Could not update your RSVP. Your place has been restored.");
+      throw error;
+    }
+  }, [allOpenInvites, notify, refresh, replaceInvite]);
 
   const endInvite = useCallback(async (inviteId: string) => {
     await socialFetch(`/api/social/open-invites/${inviteId}`, { method: "DELETE" });
@@ -317,10 +364,16 @@ export function SocialProvider({ children }: Readonly<{ children: React.ReactNod
   }, []);
 
   const messageUser = useCallback(async (userId: string) => {
-    const result = await socialFetch<{ chatId: string }>("/api/social/chats", { method: "POST", json: { userId } });
-    openChat(result.chatId);
-    refresh();
-  }, [openChat, refresh]);
+    notify("Opening your chat...");
+    try {
+      const result = await socialFetch<{ chatId: string }>("/api/social/chats", { method: "POST", json: { userId } });
+      openChat(result.chatId);
+      refresh();
+    } catch (error) {
+      notify("Could not open the chat. Try again.");
+      throw error;
+    }
+  }, [notify, openChat, refresh]);
 
   const blockUser = useCallback(async (userId: string) => {
     await socialFetch("/api/social/block", { method: "POST", json: { userId } });
@@ -340,12 +393,12 @@ export function SocialProvider({ children }: Readonly<{ children: React.ReactNod
   const value = useMemo<SocialContextValue>(() => ({
     profile, notifications, chats, unreadMessages, unreadNotifications, openInvites, toasts,
     hubOpen, hubView, activeChatId, profileSetupOpen,
-    requireProfile, editProfile, closeProfileSetup, saveProfile, openHub, openChat, closeChat, closeHub, dismissToast, refresh,
+    requireProfile, editProfile, closeProfileSetup, saveProfile, openHub, openChat, closeChat, closeHub, dismissToast, notify, refresh,
     markNotificationsRead, createOpenInvite, rsvp, leaveInvite, endInvite, hideInvite, messageUser, blockUser, reportUser,
   }), [
     profile, notifications, chats, unreadMessages, unreadNotifications, openInvites, toasts,
     hubOpen, hubView, activeChatId, profileSetupOpen,
-    requireProfile, editProfile, closeProfileSetup, saveProfile, openHub, openChat, closeChat, closeHub, dismissToast, refresh,
+    requireProfile, editProfile, closeProfileSetup, saveProfile, openHub, openChat, closeChat, closeHub, dismissToast, notify, refresh,
     markNotificationsRead, createOpenInvite, rsvp, leaveInvite, endInvite, hideInvite, messageUser, blockUser, reportUser,
   ]);
 

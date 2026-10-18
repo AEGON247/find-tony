@@ -20,6 +20,7 @@ export default function AlertModal({
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [draftCategory, setDraftCategory] = useState(category);
+  const [temporary, setTemporary] = useState(false);
 
   useEffect(() => setDraftCategory(category), [category]);
 
@@ -28,8 +29,15 @@ export default function AlertModal({
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    setSaving(true);
     const form = new FormData(event.currentTarget);
+    const hours = Number(form.get("expiry-hours") ?? 0);
+    const minutes = Number(form.get("expiry-minutes") ?? 0);
+    const durationSeconds = (hours * 60 + minutes) * 60;
+    if (temporary && (!Number.isInteger(hours) || hours < 0 || hours > 24 || !Number.isInteger(minutes) || minutes < 0 || minutes > 59 || durationSeconds <= 0 || durationSeconds > 24 * 60 * 60)) {
+      setError("Choose an expiry between 1 minute and 24 hours.");
+      return;
+    }
+    setSaving(true);
     try {
       const response = await fetch("/api/alerts", {
         method: "POST",
@@ -39,6 +47,8 @@ export default function AlertModal({
           category: form.get("category"),
           details: form.get("details"),
           eventTag: form.get("eventTag"),
+          temporary,
+          expiresAt: temporary ? new Date(Date.now() + durationSeconds * 1000).toISOString() : null,
           lat: coordinates?.[0],
           lng: coordinates?.[1],
         }),
@@ -86,6 +96,19 @@ export default function AlertModal({
           )}
           <label htmlFor="alert-details">DETAILS <span>(OPTIONAL)</span></label>
           <textarea id="alert-details" name="details" maxLength={280} rows={4} placeholder="What should people know?" />
+          <label className="preference-toggle alert-temporary-toggle">
+            <span><strong>TEMPORARY SPOT</strong><small>Automatically remove this pin after it expires.</small></span>
+            <input type="checkbox" checked={temporary} onChange={(event) => setTemporary(event.target.checked)} />
+          </label>
+          {temporary && (
+            <fieldset className="alert-expiry-fields">
+              <legend>REMOVE PIN AFTER</legend>
+              <label htmlFor="expiry-hours">HOURS</label>
+              <input id="expiry-hours" name="expiry-hours" type="number" min="0" max="24" defaultValue="2" required />
+              <label htmlFor="expiry-minutes">MINUTES</label>
+              <input id="expiry-minutes" name="expiry-minutes" type="number" min="0" max="59" defaultValue="0" required />
+            </fieldset>
+          )}
           {error && <p className="form-error" role="alert">{error}</p>}
           <button className="button button-primary profile-save" disabled={saving} type="submit">
             {saving ? "PUBLISHING..." : "PUBLISH SPOT"} <span aria-hidden="true">→</span>

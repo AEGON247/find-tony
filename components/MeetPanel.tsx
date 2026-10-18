@@ -13,7 +13,7 @@ const SWIPE_DISTANCE = 110;
 
 export default function MeetPanel() {
   const { coordinates, placesCoordinates, profile: vibeProfile } = useVibe();
-  const { profile, editProfile, openChat, refresh } = useSocial();
+  const { profile, editProfile, openChat, refresh, notify } = useSocial();
   const center = placesCoordinates ?? coordinates;
   const [candidates, setCandidates] = useState<MatchCandidate[]>();
   const [error, setError] = useState("");
@@ -49,6 +49,10 @@ export default function MeetPanel() {
     if (!current || busy) return;
     setBusy(true);
     setError("");
+    if (action === "connect") {
+      setCandidates((items) => items?.filter((item) => item.id !== current.id));
+      notify(`Connection request sent to ${current.alias}.`);
+    }
     await animate(x, action === "connect" ? 560 : -560, { duration: 0.25, ease: "easeIn" });
     try {
       const result = await socialFetch<{ matched: boolean; chatId?: string }>("/api/social/matches", {
@@ -59,9 +63,13 @@ export default function MeetPanel() {
         setMatch({ alias: current.alias, chatId: result.chatId });
         refresh();
       }
-      setCandidates((items) => items?.slice(1));
+      if (action === "pass") setCandidates((items) => items?.slice(1));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "That didn't go through.");
+      if (action === "connect") {
+        setCandidates((items) => [current, ...(items ?? []).filter((item) => item.id !== current.id)]);
+        notify(`Could not connect with ${current.alias}. The profile was restored.`);
+      }
     } finally {
       x.set(0);
       setBusy(false);

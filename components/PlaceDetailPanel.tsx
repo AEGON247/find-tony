@@ -7,6 +7,12 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { VibePlace } from "@/lib/types";
 
 const SAVED_PLACES_KEY = "find-tony-saved-places-v1";
+const CATEGORY_PHOTOS: Record<VibePlace["category"], string> = {
+  FOODIE: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=85",
+  PARTY: "https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=1200&q=85",
+  EVENTS: "https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=1200&q=85",
+  CHILL: "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=85",
+};
 type DetailTab = "overview" | "reviews" | "about";
 
 function formatEventTime(value?: string) {
@@ -83,6 +89,12 @@ export default function PlaceDetailPanel({
   const [imageIndex, setImageIndex] = useState(0);
   const [failedImageUrls, setFailedImageUrls] = useState<string[]>([]);
   const currentImageUrl = imageUrls[Math.min(imageIndex, Math.max(imageUrls.length - 1, 0))];
+  const fallbackImageUrl = place ? CATEGORY_PHOTOS[place.category] : undefined;
+  const displayImageUrl = currentImageUrl && !failedImageUrls.includes(currentImageUrl)
+    ? currentImageUrl
+    : fallbackImageUrl && !failedImageUrls.includes(fallbackImageUrl)
+      ? fallbackImageUrl
+      : undefined;
   const CategoryIcon = place?.category === "FOODIE"
     ? Coffee
     : place?.category === "PARTY"
@@ -242,15 +254,16 @@ export default function PlaceDetailPanel({
             {mobileExpanded ? <ArrowDown size={17} /> : <ArrowUp size={17} />}
           </button>
           <div className={`place-detail-banner place-detail-banner--${place.category.toLowerCase()}`}>
-            {currentImageUrl && !failedImageUrls.includes(currentImageUrl) ? (
+            {displayImageUrl ? (
               <Image
                 className="place-detail-image"
-                src={currentImageUrl}
+                src={displayImageUrl}
                 alt=""
                 fill
                 unoptimized
+                loading="lazy"
                 sizes="(max-width: 560px) 100vw, 380px"
-                onError={() => setFailedImageUrls((urls) => [...new Set([...urls, currentImageUrl])])}
+                onError={() => setFailedImageUrls((urls) => [...new Set([...urls, displayImageUrl])])}
               />
             ) : (
               <div className="place-detail-placeholder" aria-hidden="true">

@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
   const details = input.details;
   const tags = input.tags;
   const eventTag = input.eventTag;
+  const temporary = input.temporary === true;
   if (title.length < 3 || title.length > 80) {
     return NextResponse.json({ error: "Title must be between 3 and 80 characters." }, { status: 400 });
   }
@@ -49,6 +50,17 @@ export async function POST(request: NextRequest) {
   if (eventTag !== undefined && category !== "EVENTS") {
     return NextResponse.json({ error: "Event tags can only be used with the EVENTS category." }, { status: 400 });
   }
+  if (input.temporary !== undefined && typeof input.temporary !== "boolean") {
+    return NextResponse.json({ error: "Temporary must be a boolean." }, { status: 400 });
+  }
+  let expiresAt: string | null = null;
+  if (temporary) {
+    const expiry = typeof input.expiresAt === "string" ? Date.parse(input.expiresAt) : NaN;
+    if (!Number.isFinite(expiry) || expiry <= Date.now() || expiry > Date.now() + 24 * 60 * 60 * 1000) {
+      return NextResponse.json({ error: "Temporary spots must expire within the next 24 hours." }, { status: 400 });
+    }
+    expiresAt = new Date(expiry).toISOString();
+  }
 
   const alert: VibePlace = {
     id: `alert-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
@@ -59,6 +71,7 @@ export async function POST(request: NextRequest) {
     address: "Community-submitted location",
     details: typeof details === "string" ? details.trim() : "",
     source: "Community alert",
+    expiresAt,
     ...((eventTag || Array.isArray(tags))
       ? {
         tags: [...new Set([
