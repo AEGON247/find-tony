@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { X } from "lucide-react";
+import Image from "next/image";
+import { UserRound, X } from "lucide-react";
 import { useState } from "react";
 import { useVibe } from "@/context/VibeContext";
 import BadgeShowcase from "@/components/BadgeShowcase";
@@ -9,6 +10,7 @@ import type { BadgeProgress } from "@/config/badges";
 import { CATEGORIES, type Category } from "@/lib/types";
 
 const radiusOptions = [1, 3, 5, 10];
+const avatarOptions = ["spidey.png", "koala.png", "guitar.png", "football.png", "dog.png", "crown.png", "cat.png", "cap-shield.png"];
 
 export default function ProfileModal({
   onClose,
@@ -19,6 +21,7 @@ export default function ProfileModal({
 }) {
   const { profile, updateProfile, preferences, updatePreferences } = useVibe();
   const [draft, setDraft] = useState(profile);
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
 
   const save = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -49,7 +52,66 @@ export default function ProfileModal({
             <h2 id="profile-title">VIBE PROFILE</h2>
             <p className="drawer-copy">Choose a default vibe and search radius. Your profile stays on this device.</p>
             <BadgeShowcase badges={badges.filter((badge) => badge.unlocked)} />
-            <fieldset className="profile-preferences">
+            <form onSubmit={save} className="profile-form">
+              <div className="profile-avatar-controls">
+                <div className="profile-avatar-selector">
+                  <button
+                    className="profile-avatar-preview"
+                    type="button"
+                    aria-label="Choose profile avatar"
+                    aria-haspopup="listbox"
+                    aria-expanded={avatarPickerOpen}
+                    onClick={() => setAvatarPickerOpen((open) => !open)}
+                  >
+                    {draft.avatar
+                      ? <Image src={`/avatars/${draft.avatar}`} alt="Current avatar" width={64} height={64} unoptimized />
+                      : <span className="profile-avatar-none"><UserRound size={26} /></span>}
+                  </button>
+                  {avatarPickerOpen && (
+                    <div className="profile-avatar-picker" role="listbox" aria-label="Choose an avatar">
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={draft.avatar === null}
+                        className={`profile-avatar-option profile-avatar-option--none${draft.avatar === null ? " is-selected" : ""}`}
+                        onClick={() => {
+                          setDraft({ ...draft, avatar: null, useAvatarAsPointer: false });
+                          setAvatarPickerOpen(false);
+                        }}
+                      >
+                        <span aria-hidden="true">⊘</span>
+                        <small>None</small>
+                      </button>
+                      {avatarOptions.map((avatar) => (
+                        <button
+                          key={avatar}
+                          type="button"
+                          role="option"
+                          aria-label={avatar.replace(".png", "").replace("-", " ")}
+                          aria-selected={draft.avatar === avatar}
+                          className={`profile-avatar-option${draft.avatar === avatar ? " is-selected" : ""}`}
+                          onClick={() => {
+                            setDraft({ ...draft, avatar });
+                            setAvatarPickerOpen(false);
+                          }}
+                        >
+                          <Image src={`/avatars/${avatar}`} alt="" width={48} height={48} unoptimized />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <label className="preference-toggle profile-pointer-toggle">
+                  <span><strong>USE AS POINTER?</strong><small>Use this avatar for your map location marker.</small></span>
+                  <input
+                    type="checkbox"
+                    checked={draft.useAvatarAsPointer}
+                    disabled={!draft.avatar}
+                    onChange={(event) => setDraft({ ...draft, useAvatarAsPointer: event.target.checked })}
+                  />
+                </label>
+              </div>
+              <fieldset className="profile-preferences">
               <legend>MAP FILTERS</legend>
               <label className="preference-toggle">
                 <span><strong>HIDE SMOKING SPOTS</strong><small>Hide places tagged for smoking or cigars.</small></span>
@@ -68,7 +130,6 @@ export default function ProfileModal({
                 />
               </label>
             </fieldset>
-            <form onSubmit={save} className="profile-form">
               <label htmlFor="alias">YOUR HANDLE</label>
               <input id="alias" maxLength={32} value={draft.alias} onChange={(event) => setDraft({ ...draft, alias: event.target.value })} placeholder="@sydney_hacker" />
 

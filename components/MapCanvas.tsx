@@ -146,12 +146,25 @@ function avatarIcon() {
 
 function UserLocationMarker({ coordinates }: { coordinates: [number, number] }) {
   const heading = useSyncExternalStore(subscribeDeviceHeading, getDeviceHeading, () => 0);
+  const { profile } = useVibe();
   const markerRef = useRef<L.Marker | null>(null);
-  const icon = useMemo(() => avatarIcon(), []);
+  const icon = useMemo(() => {
+    if (profile.useAvatarAsPointer && profile.avatar) {
+      return L.divIcon({
+        className: "user-avatar-map-pointer",
+        html: `<span class="user-avatar-map-pointer__frame"><img src="/avatars/${profile.avatar}" alt="" /></span>`,
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
+      });
+    }
+    return avatarIcon();
+  }, [profile.avatar, profile.useAvatarAsPointer]);
 
   useEffect(() => {
-    markerRef.current?.getElement()?.style.setProperty("--map-avatar-heading", `${heading}deg`);
-  }, [heading]);
+    if (!profile.useAvatarAsPointer || !profile.avatar) {
+      markerRef.current?.getElement()?.style.setProperty("--map-avatar-heading", `${heading}deg`);
+    }
+  }, [heading, profile.avatar, profile.useAvatarAsPointer]);
 
   return <Marker ref={markerRef} position={coordinates} icon={icon} keyboard={false} zIndexOffset={1000} />;
 }

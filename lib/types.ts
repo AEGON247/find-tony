@@ -47,6 +47,8 @@ export interface UserProfile {
   alias: string;
   primaryVibe: Category;
   radiusKm: number;
+  avatar: string | null;
+  useAvatarAsPointer: boolean;
 }
 
 export interface VibesResponse {

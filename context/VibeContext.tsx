@@ -24,9 +24,12 @@ export const DEFAULT_PROFILE: UserProfile = {
   alias: "",
   primaryVibe: "FOODIE",
   radiusKm: 3,
+  avatar: null,
+  useAvatarAsPointer: false,
 };
 
 const VALID_CATEGORIES = ["FOODIE", "PARTY", "EVENTS", "CHILL"];
+const VALID_AVATARS = ["spidey.png", "koala.png", "guitar.png", "football.png", "dog.png", "crown.png", "cat.png", "cap-shield.png"];
 
 interface VibeContextValue {
   profile: UserProfile;
@@ -70,6 +73,8 @@ function parseProfile(serialized: string | null): UserProfile {
       alias?: unknown;
       primaryVibe?: unknown;
       radiusKm?: unknown;
+      avatar?: unknown;
+      useAvatarAsPointer?: unknown;
     };
     return {
       alias: typeof parsed.alias === "string" ? parsed.alias : DEFAULT_PROFILE.alias,
@@ -79,6 +84,10 @@ function parseProfile(serialized: string | null): UserProfile {
           ? "EVENTS"
           : DEFAULT_PROFILE.primaryVibe,
       radiusKm: [1, 3, 5, 10].includes(Number(parsed.radiusKm)) ? Number(parsed.radiusKm) : DEFAULT_PROFILE.radiusKm,
+      avatar: typeof parsed.avatar === "string" && VALID_AVATARS.includes(parsed.avatar) ? parsed.avatar : null,
+      useAvatarAsPointer: parsed.useAvatarAsPointer === true &&
+        typeof parsed.avatar === "string" &&
+        VALID_AVATARS.includes(parsed.avatar),
     };
   } catch {
     return DEFAULT_PROFILE;
